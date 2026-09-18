@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="StudyOS">
+<meta name="theme-color" content="#f8fafc">
+<script>
+    const manifest = {
+        name: "StudyOS", short_name: "StudyOS", start_url: ".", display: "standalone",
+        background_color: "#f8fafc", theme_color: "#2563eb",
+        icons: [{src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%232563eb' rx='20'/%3E%3Ctext x='50' y='65' font-size='50' text-anchor='middle' fill='white' font-family='sans-serif'%3ES%3C/text%3E%3C/svg%3E", sizes: "192x192", type: "image/svg+xml"}]
+    };
+    const blob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
+    document.write('<link rel="manifest" href="' + URL.createObjectURL(blob) + '">');
+</script>
+<title>StudyOS</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.0.3/src/index.min.js"></script>
+<style>
+    body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; background-color: #f8fafc; color: #0f172a; }
+    .view-section { display: none; animation: fadeIn 0.3s ease-in-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    .pb-safe { padding-bottom: env(safe-area-inset-bottom, 80px); }
+    .timer-circle { transition: stroke-dashoffset 1s linear; transform: rotate(-90deg); transform-origin: 50% 50%; }
+</style>
+</head>
+<body class="h-screen w-full overflow-hidden flex flex-col">
+
+<header class="bg-white px-6 py-4 flex justify-between items-center shadow-sm z-10 flex-shrink-0">
+    <h1 class="text-2xl font-bold text-blue-600 tracking-tight" id="header-title">StudyOS Dashboard</h1>
+    <button id="settings-btn" class="p-2 rounded-full hover:bg-slate-100 transition"><i class="ph ph-gear text-2xl text-slate-600"></i></button>
+</header>
+
+<main class="flex-grow overflow-y-auto pb-24 relative" id="main-content">
+    
+    <!-- VIEW: Home -->
+    <section id="view-home" class="view-section p-6 space-y-6" style="display: block;">
+        <div class="grid grid-cols-2 gap-4">
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center justify-center">
+                <span class="text-slate-500 text-sm font-medium mb-1">Today's Focus</span>
+                <span class="text-3xl font-bold text-slate-800" id="home-today-time">0h 0m</span>
+            </div>
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center justify-center">
+                <span class="text-slate-500 text-sm font-medium mb-1">Daily Goal</span>
+                <span class="text-3xl font-bold text-blue-600" id="home-daily-target">4h 0m</span>
+            </div>
+        </div>
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+            <div class="flex justify-between text-sm mb-2">
+                <span class="text-slate-500 font-medium">Daily Progress</span>
+                <span class="text-blue-600 font-bold" id="home-progress-text">0%</span>
+            </div>
+            <div class="w-full bg-slate-100 rounded-full h-3">
+                <div class="bg-blue-600 h-3 rounded-full transition-all duration-500" id="home-progress-bar" style="width: 0%"></div>
+            </div>
+        </div>
+        <div class="bg-gradient-to-r from-orange-400 to-amber-500 p-5 rounded-2xl shadow-md text-white flex items-center justify-between">
+            <div>
+                <h3 class="text-lg font-semibold flex items-center gap-2"><i class="ph-fill ph-fire text-2xl"></i> Current Streak</h3>
+                <p class="text-orange-50 text-sm mt-1" id="home-streak-text">Keep it up!</p>
+            </div>
+            <div class="text-4xl font-bold bg-white/20 px-4 py-2 rounded-xl backdrop-blur-sm" id="home-streak-count">0</div>
+        </div>
+        <button onclick="nav.switchTab('timer')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 rounded-2xl shadow-lg transition transform active:scale-95 flex items-center justify-center gap-2 text-lg">
+            <i class="ph-fill ph-play-circle text-2xl"></i> Start Studying
+        </button>
+        <div>
+            <h3 class="text-lg font-semibold text-slate-800 mb-3 flex items-center gap-2"><i class="ph-fill ph-chart-pie-slice text-blue-500"></i> Today's Subjects</h3>
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 space-y-3" id="home-subject-breakdown"></div>
+        </div>
+        <div>
+            <h3 class="text-lg font-semibold text-slate-800 mb-3 flex items-center gap-2"><i class="ph-fill ph-flag text-purple-500"></i> Revision Queue</h3>
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 space-y-3" id="home-revision-list"></div>
+        </div>
+    </section>
+
+    <!-- VIEW: Timer -->
+    <section id="view-timer" class="view-section p-6 h-full flex-col">
+        <div id="timer-setup" class="space-y-4 flex-grow">
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-2">Subject</label>
+                <select id="timer-subject-select" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none"></select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-2">Chapter</label>
+                <select id="timer-chapter-select" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none"></select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-2">Topic</label>
+                <select id="timer-topic-select" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none"></select>
+            </div>
+            <div class="pt-4 border-t border-slate-100">
+                <label class="block text-sm font-medium text-slate-700 mb-2">Mode</label>
+                <div class="flex gap-2 text-sm sm:text-base">
+                    <button id="mode-focus-btn" class="flex-1 bg-blue-100 text-blue-700 font-medium py-2 rounded-lg border-2 border-blue-500 transition">Focus</button>
+                    <button id="mode-revision-btn" class="flex-1 bg-slate-100 text-slate-600 font-medium py-2 rounded-lg border-2 border-transparent transition">Revision</button>
+                    <button id="mode-break-btn" class="flex-1 bg-slate-100 text-slate-600 font-medium py-2 rounded-lg border-2 border-transparent transition">Break</button>
+                </div>
+            </div>
+            <div class="pt-4 border-t border-slate-100">
+                <label class="block text-sm font-medium text-slate-700 mb-2">Timer Type</label>
+                <div class="flex gap-2 text-sm sm:text-base">
+                    <button id="type-countdown-btn" class="flex-1 bg-blue-100 text-blue-700 font-medium py-2 rounded-lg border-2 border-blue-500 transition">Countdown</button>
+                    <button id="type-stopwatch-btn" class="flex-1 bg-slate-100 text-slate-600 font-medium py-2 rounded-lg border-2 border-transparent transition">Stopwatch</button>
+                </div>
+            </div>
+            <div class="pt-4 border-t border-slate-100" id="duration-container">
+                <label class="block text-sm font-medium text-slate-700 mb-2">Duration (minutes)</label>
+                <div class="flex items-center gap-4">
+                    <input type="range" id="timer-duration-slider" min="1" max="120" value="25" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                    <span id="timer-duration-display" class="font-bold text-lg w-16 text-right">25 m</span>
+                </div>
+            </div>
+            <div class="mt-auto pt-6 pb-4">
+                <button id="timer-start-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl shadow-md text-lg active:scale-95 transition">Start Session</button>
+            </div>
+        </div>
+        <div id="timer-active" class="hidden flex-col items-center justify-center flex-grow space-y-6">
+            <div class="text-center">
+                <h2 id="active-subject-text" class="text-2xl font-bold text-slate-800">Subject</h2>
+                <p id="active-chapter-text" class="text-slate-600 font-medium mt-1">Chapter</p>
+                <p id="active-topic-text" class="text-slate-500 text-sm">Topic</p>
+                <div id="active-mode-badge" class="mt-3 inline-block px-3 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded-full uppercase tracking-wider">Focus Mode</div>
+            </div>
+            <div class="relative w-64 h-64 flex items-center justify-center">
+                <svg class="absolute inset-0 w-full h-full" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="45" fill="none" stroke="#e2e8f0" stroke-width="6" />
+                    <circle id="timer-progress-circle" class="timer-circle" cx="50" cy="50" r="45" fill="none" stroke="#2563eb" stroke-width="6" stroke-dasharray="283" stroke-dashoffset="0" stroke-linecap="round" />
+                </svg>
+                <div class="z-10 flex flex-col items-center">
+                    <span id="timer-display" class="text-5xl font-bold tracking-tighter text-slate-800 font-mono">25:00</span>
+                </div>
+            </div>
+            <div class="flex gap-4 w-full px-6">
+                <button id="timer-pause-btn" class="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold py-4 rounded-2xl shadow-sm transition flex justify-center items-center gap-2"><i class="ph-fill ph-pause text-xl"></i> Pause</button>
+                <button id="timer-stop-btn" class="flex-1 bg-red-100 hover:bg-red-200 text-red-700 font-semibold py-4 rounded-2xl shadow-sm transition flex justify-center items-center gap-2"><i class="ph-fill ph-stop text-xl"></i> End</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- VIEW: Subjects -->
+    <section id="view-subjects" class="view-section p-6 space-y-6">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold text-slate-800">My Subjects</h2>
+            <button onclick="app.subjects.promptAddSubject()" class="bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-blue-200 transition flex items-center gap-1"><i class="ph-bold ph-plus"></i> New Subject</button>
+        </div>
+        <div id="subjects-list" class="space-y-4"></div>
+    </section>
+
+    <!-- VIEW: History -->
+    <section id="view-history" class="view-section p-6 space-y-6">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-6">
+            <h3 class="text-sm font-medium text-slate-500 mb-3 uppercase tracking-wider">Summary</h3>
+            <div class="flex justify-between">
+                <div><div class="text-2xl font-bold text-slate-800" id="history-total-today">0h 0m</div><div class="text-xs text-slate-500">Today</div></div>
+                <div class="w-px bg-slate-200 mx-4"></div>
+                <div><div class="text-2xl font-bold text-blue-600" id="history-total-week">0h 0m</div><div class="text-xs text-slate-500">Past 7 Days</div></div>
+            </div>
+        </div>
+        <h2 class="text-lg font-bold text-slate-800 mb-4">Recent Sessions</h2>
+        <div id="history-list" class="space-y-3 pb-8"></div>
+    </section>
+
+    <!-- VIEW: Calendar -->
+    <section id="view-calendar" class="view-section p-6 space-y-6">
+        <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
+            <div class="flex justify-between items-center mb-6">
+                <button id="cal-prev" class="p-2 bg-slate-50 hover:bg-slate-200 rounded-xl text-slate-600 transition"><i class="ph-bold ph-caret-left"></i></button>
+                <div class="text-center flex flex-col items-center">
+                    <h3 id="cal-month-year" class="font-bold text-lg text-slate-800 leading-tight">Month Year</h3>
+                    <button id="cal-today-btn" class="text-[10px] text-blue-600 font-bold uppercase tracking-widest mt-1 hover:text-blue-800 transition">Today</button>
+                </div>
+                <button id="cal-next" class="p-2 bg-slate-50 hover:bg-slate-200 rounded-xl text-slate-600 transition"><i class="ph-bold ph-caret-right"></i></button>
+            </div>
+            <div class="grid grid-cols-7 gap-1 text-center text-xs mb-3 text-slate-400 font-semibold uppercase tracking-wider">
+                <div>Su</div><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div>
+            </div>
+            <div id="cal-grid" class="grid grid-cols-7 gap-1.5 sm:gap-2"></div>
+        </div>
+        <div class="grid grid-cols-2 gap-4 pb-8">
+            <div class="bg-blue-50 p-4 rounded-2xl shadow-sm border border-blue-100"><span class="text-blue-600/80 text-xs font-bold uppercase tracking-wider">Total Time</span><div class="text-2xl font-black text-blue-700 mt-1" id="cal-stat-total">0h</div></div>
+            <div class="bg-emerald-50 p-4 rounded-2xl shadow-sm border border-emerald-100"><span class="text-emerald-600/80 text-xs font-bold uppercase tracking-wider">Target Met</span><div class="text-2xl font-black text-emerald-700 mt-1" id="cal-stat-met">0 days</div></div>
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100"><span class="text-slate-500 text-xs font-bold uppercase tracking-wider">Study Days</span><div class="text-2xl font-black text-slate-800 mt-1" id="cal-stat-days">0</div></div>
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100"><span class="text-slate-500 text-xs font-bold uppercase tracking-wider">Avg Daily</span><div class="text-2xl font-black text-slate-800 mt-1" id="cal-stat-avg">0m</div></div>
+        </div>
+    </section>
+
+    <!-- VIEW: AI Assistant -->
+    <section id="view-ai" class="view-section absolute inset-0 flex-col bg-slate-50 z-20">
+        <div class="flex flex-col items-center justify-center h-full text-center p-6 space-y-4">
+            <div class="w-20 h-20 bg-gradient-to-tr from-purple-500 to-blue-500 rounded-full flex items-center justify-center shadow-lg text-white mb-4">
+                <i class="ph-fill ph-sparkle text-4xl"></i>
+            </div>
+            <h2 class="text-2xl font-bold text-slate-800">AI Assistant</h2>
+            <p class="text-slate-600 max-w-sm">AI Assistant coming soon &mdash; this feature isn't connected yet.</p>
+        </div>
+    </section>
+
+</main>
+
+<!-- Bottom Nav -->
+<nav class="bg-white border-t border-slate-200 fixed bottom-0 w-full pb-safe z-40">
+    <ul class="flex justify-around items-center py-2 px-1">
+        <li class="flex-1"><button onclick="nav.switchTab('home')" class="nav-btn w-full flex flex-col items-center p-2 text-blue-600 transition" data-target="home"><i class="ph-fill ph-house text-2xl mb-1 nav-icon"></i><span class="text-[10px] font-medium">Home</span></button></li>
+        <li class="flex-1"><button onclick="nav.switchTab('timer')" class="nav-btn w-full flex flex-col items-center p-2 text-slate-400 hover:text-blue-600 transition" data-target="timer"><i class="ph ph-timer text-2xl mb-1 nav-icon"></i><span class="text-[10px] font-medium">Timer</span></button></li>
+        <li class="flex-1"><button onclick="nav.switchTab('subjects')" class="nav-btn w-full flex flex-col items-center p-2 text-slate-400 hover:text-blue-600 transition" data-target="subjects"><i class="ph ph-books text-2xl mb-1 nav-icon"></i><span class="text-[10px] font-medium">Subjects</span></button></li>
+        <li class="flex-1"><button onclick="nav.switchTab('history')" class="nav-btn w-full flex flex-col items-center p-2 text-slate-400 hover:text-blue-600 transition" data-target="history"><i class="ph ph-chart-line-up text-2xl mb-1 nav-icon"></i><span class="text-[10px] font-medium">History</span></button></li>
+        <li class="flex-1"><button onclick="nav.switchTab('calendar')" class="nav-btn w-full flex flex-col items-center p-2 text-slate-400 hover:text-blue-600 transition" data-target="calendar"><i class="ph ph-calendar text-2xl mb-1 nav-icon"></i><span class="text-[10px] font-medium">Calendar</span></button></li>
+        <li class="flex-1"><button onclick="nav.switchTab('ai')" class="nav-btn w-full flex flex-col items-center p-2 text-slate-400 hover:text-purple-600 transition" data-target="ai"><i class="ph ph-sparkle text-2xl mb-1 nav-icon"></i><span class="text-[10px] font-medium">Assistant</span></button></li>
+    </ul>
+</nav>
+
+<!-- Modals -->
+<div id="custom-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-50 flex items-center justify-center p-6 opacity-0 transition-opacity">
+    <div class="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 transform scale-95 transition-transform" id="custom-modal-content">
+        <h3 id="modal-title" class="text-lg font-bold text-slate-800 mb-2">Title</h3>
+        <p id="modal-desc" class="text-sm text-slate-600 mb-4 hidden">Description</p>
+        <input type="text" id="modal-input" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 mb-4 hidden outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+        <div class="flex gap-3 justify-end">
+            <button id="modal-cancel" class="px-4 py-2 text-slate-600 font-medium rounded-lg hover:bg-slate-100">Cancel</button>
+            <button id="modal-confirm" class="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<div id="calendar-date-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4 sm:p-6 opacity-0 transition-opacity">
+    <div class="bg-white rounded-3xl w-full max-w-md shadow-2xl flex flex-col max-h-[90vh] transform scale-95 transition-transform" id="calendar-date-content">
+        <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-3xl">
+            <div><h3 id="cal-modal-title" class="text-xl font-bold text-slate-800">Date</h3><p id="cal-modal-subtitle" class="text-xs font-semibold text-slate-500 uppercase tracking-widest mt-1">Daily Summary</p></div>
+            <button id="cal-modal-close" class="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-full transition"><i class="ph-bold ph-x text-lg"></i></button>
+        </div>
+        <div class="overflow-y-auto p-5 space-y-6 flex-grow">
+            <div class="flex items-center gap-3 bg-white border border-slate-100 shadow-sm p-4 rounded-2xl">
+                <div class="relative w-14 h-14 flex items-center justify-center shrink-0">
+                    <svg class="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 36 36"><path class="text-slate-100" stroke-width="3" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /><path id="cal-modal-ring" class="text-blue-500" stroke-width="3" stroke-dasharray="0, 100" stroke-linecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /></svg>
+                    <span id="cal-modal-pct" class="text-xs font-bold text-slate-700">0%</span>
+                </div>
+                <div class="flex-grow flex justify-around">
+                    <div class="text-center"><span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Actual</span><span id="cal-modal-actual" class="text-lg font-black text-slate-800">0h 0m</span></div>
+                    <div class="w-px bg-slate-200"></div>
+                    <div class="text-center"><span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Planned</span><span id="cal-modal-planned" class="text-lg font-black text-slate-500">0h 0m</span></div>
+                </div>
+            </div>
+            <div>
+                <h4 class="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2"><i class="ph-fill ph-check-circle text-blue-500 text-lg"></i> Completed Study</h4>
+                <div id="cal-modal-actual-list" class="space-y-2"></div>
+            </div>
+            <div>
+                <h4 class="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2"><i class="ph-fill ph-calendar-blank text-orange-400 text-lg"></i> Planned Sessions</h4>
+                <div id="cal-modal-planned-list" class="space-y-2"></div>
+                <button id="cal-show-plan-btn" class="mt-3 w-full border-2 border-dashed border-slate-200 text-slate-500 font-semibold py-3 rounded-xl hover:bg-slate-50 hover:text-blue-600 hover:border-blue-200 transition flex items-center justify-center gap-2"><i class="ph-bold ph-plus"></i> Plan Session</button>
+                <div id="cal-plan-form" class="hidden mt-3 p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-4">
+                    <div><label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Subject</label><select id="cal-plan-subject" class="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-500"></select></div>
+                    <div><label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Chapter</label><select id="cal-plan-chapter" class="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-500"><option value="">Select subject first</option></select></div>
+                    <div><label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Topic (Optional)</label><select id="cal-plan-topic" class="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-500"><option value="">Any Topic</option></select></div>
+                    <div><label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Planned Duration (mins)</label><input type="number" id="cal-plan-mins" value="60" min="5" step="5" class="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-500"></div>
+                    <div class="flex gap-2 pt-2">
+                        <button id="cal-plan-cancel" class="flex-1 px-3 py-2 text-slate-600 font-semibold bg-white border border-slate-200 rounded-lg text-sm hover:bg-slate-100">Cancel</button>
+                        <button id="cal-plan-save" class="flex-1 px-3 py-2 text-white font-semibold bg-blue-600 rounded-lg text-sm hover:bg-blue-700">Save Plan</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="settings-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-50 flex items-center justify-center p-6 opacity-0 transition-opacity">
+    <div class="bg-white rounded-2xl w-full max-w-sm shadow-xl transform scale-95 transition-transform flex flex-col max-h-[90vh]" id="settings-modal-content">
+        <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl shrink-0">
+            <h3 class="text-lg font-bold text-slate-800">Settings</h3>
+            <button id="settings-close" class="text-slate-400 hover:text-slate-700 transition"><i class="ph-bold ph-x text-lg"></i></button>
+        </div>
+        <div class="p-5 space-y-4 overflow-y-auto">
+            <div class="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                <h4 class="text-sm font-bold text-blue-800 mb-1">Data Management</h4>
+                <p class="text-xs text-blue-600 mb-3">Backup your data to a file, or restore from a previous backup.</p>
+                <div class="flex flex-col gap-2">
+                    <button id="btn-export-backup" class="w-full bg-white border border-blue-200 text-blue-700 font-semibold py-2.5 rounded-lg hover:bg-blue-50 transition flex items-center justify-center gap-2 text-sm"><i class="ph-bold ph-download-simple"></i> Export Backup</button>
+                    <button id="btn-import-backup" class="w-full bg-blue-600 text-white font-semibold py-2.5 rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2 text-sm"><i class="ph-bold ph-upload-simple"></i> Import Backup</button>
+                    <input type="file" id="file-import-input" accept=".json" class="hidden">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const utils = {
+    formatTime: (mins) => mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`,
+    formatDate: (str) => str ? (str.includes('-') ? calUtils.parseYYYYMMDD(str) : new Date(str)).toLocaleDateString(undefined, {weekday:'short', month:'short', day:'numeric'}) : '',
+    generateId: () => Math.random().toString(36).substr(2, 9),
+    getSubjectColor: (i) => ['bg-blue-500', 'bg-indigo-500', 'bg-purple-500', 'bg-pink-500', 'bg-rose-500', 'bg-orange-500', 'bg-emerald-500', 'bg-teal-500'][i % 8]
+};
+
+const calUtils = {
+    safeDate: (y, m, d) => new Date(y, m, d, 12, 0, 0),
+    parseYYYYMMDD: (str) => { if(!str) return new Date(); const [y, m, d] = str.split('-').map(Number); return calUtils.safeDate(y, m - 1, d); },
+    toYYYYMMDD: (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+};
+
+const dataLayer = {
+    defaultData: {
+        settings: { dailyGoalMinutes: 240 },
+        streak: { count: 3, lastStudyDate: calUtils.toYYYYMMDD(new Date(Date.now() - 86400000)) },
+        subjects: [
+            { id: 'sub_1', name: 'Physics', color: 'bg-indigo-500', chapters: [{ id: 'c_1', name: 'Mechanics', topics: [{id: 't_1', name: 'Kinematics', needsRevision: false, lastRevisedDate: null}, {id: 't_2', name: 'Dynamics', needsRevision: true, lastRevisedDate: null}]}, { id: 'c_2', name: 'Thermodynamics', topics: [{id: 't_3', name: 'Laws of Thermo', needsRevision: false, lastRevisedDate: null}]}]},
+            { id: 'sub_2', name: 'Mathematics', color: 'bg-rose-500', chapters: [{ id: 'c_3', name: 'Calculus', topics: [{id: 't_4', name: 'Derivatives', needsRevision: false, lastRevisedDate: null}]}, { id: 'c_4', name: 'Linear Algebra', topics: [{id: 't_5', name: 'Matrices', needsRevision: false, lastRevisedDate: null}]}]},
+            { id: 'sub_3', name: 'Chemistry', color: 'bg-purple-500', chapters: [{ id: 'c_5', name: 'Organic Chemistry', topics: [{id: 't_6', name: 'Alkanes', needsRevision: false, lastRevisedDate: null}, {id: 't_7', name: 'Alkenes', needsRevision: false, lastRevisedDate: null}]}, { id: 'c_6', name: 'Physical Chemistry', topics: [{id: 't_8', name: 'Thermodynamics', needsRevision: false, lastRevisedDate: null}, {id: 't_9', name: 'Kinetics', needsRevision: false, lastRevisedDate: null}]}]}
+        ],
+        sessions: [{ id: 'sess_1', date: calUtils.toYYYYMMDD(new Date()), subjectId: 'sub_1', chapterId: 'c_1', topicId: 't_1', startTime: Date.now() - 3600000 - (45 * 60000), endTime: Date.now() - 3600000, mode: 'focus', timestamp: Date.now() - 3600000 }],
+        plannedSessions: []
+    },
+    get: function() {
+        let data; try { data = JSON.parse(localStorage.getItem('studyOS_data')) || this.defaultData; } catch(e) { data = this.defaultData; }
+        let migrated = false;
+        if (data.subjects) data.subjects.forEach(sub => {
+            if (sub.topics) {
+                sub.chapters = [];
+                sub.topics.forEach(oldTopic => {
+                    const newChapId = 'c_' + utils.generateId();
+                    sub.chapters.push({ id: newChapId, name: oldTopic.name, topics: [{ id: oldTopic.id, name: 'General', needsRevision: oldTopic.needsRevision || false, lastRevisedDate: oldTopic.lastRevisedDate || null }] });
+                    if (data.sessions) data.sessions.forEach(sess => { if (sess.topicId === oldTopic.id && !sess.chapterId) sess.chapterId = newChapId; });
+                });
+                delete sub.topics; migrated = true;
+            }
+        });
+        if (!data.plannedSessions) { data.plannedSessions = []; migrated = true; }
+        if (migrated) this.save(data);
+        return data;
+    },
+    save: function(data) { localStorage.setItem('studyOS_data', JSON.stringify(data)); },
+    addSession: function(session) {
+        const data = this.get(); data.sessions.unshift(session);
+        const todayStr = calUtils.toYYYYMMDD(new Date());
+        if (session.mode === 'focus' || session.mode === 'revision') {
+            if (data.streak.lastStudyDate !== todayStr) {
+                if (data.streak.lastStudyDate === calUtils.toYYYYMMDD(calUtils.safeDate(new Date().getFullYear(), new Date().getMonth(), new Date().getDate() - 1))) data.streak.count += 1; else data.streak.count = 1;
+                data.streak.lastStudyDate = todayStr;
+            }
+        }
+        this.save(data); app.ui.renderHome(); app.history.render(); if(app.calendar) app.calendar.render();
+    }
+};
+
+const modal = {
+    el: document.getElementById('custom-modal'), content: document.getElementById('custom-modal-content'), title: document.getElementById('modal-title'), desc: document.getElementById('modal-desc'), input: document.getElementById('modal-input'), btnCancel: document.getElementById('modal-cancel'), btnConfirm: document.getElementById('modal-confirm'), resolvePromise: null,
+    show: function(opt) {
+        return new Promise((res) => {
+            this.resolvePromise = res; this.title.textContent = opt.title;
+            if(opt.desc) { this.desc.textContent = opt.desc; this.desc.classList.remove('hidden'); } else this.desc.classList.add('hidden');
+            if (opt.type === 'prompt') { this.input.classList.remove('hidden'); this.input.value = opt.defaultValue || ''; this.input.placeholder = opt.placeholder || ''; } else this.input.classList.add('hidden');
+            this.el.classList.remove('hidden'); setTimeout(() => { this.el.classList.remove('opacity-0'); this.content.classList.remove('scale-95'); }, 10);
+            if(opt.type === 'prompt') this.input.focus();
+            this.btnCancel.onclick = () => this.close(null);
+            this.btnConfirm.onclick = () => { if (opt.type === 'prompt') { if (!this.input.value.trim() && opt.required) return; this.close(this.input.value.trim()); } else this.close(true); };
+        });
+    },
+    close: function(val) { this.el.classList.add('opacity-0'); this.content.classList.add('scale-95'); setTimeout(() => { this.el.classList.add('hidden'); if (this.resolvePromise) this.resolvePromise(val); }, 200); }
+};
+
+const nav = {
+    titles: { home: 'StudyOS Dashboard', timer: 'Study Session', subjects: 'Manage Subjects', history: 'Study History', calendar: 'Study Calendar', ai: 'AI Assistant' },
+    switchTab: function(id) {
+        document.getElementById('header-title').textContent = this.titles[id];
+        document.querySelectorAll('.view-section').forEach(el => { el.classList.remove('active'); el.style.display = 'none'; });
+        const target = document.getElementById('view-' + id); target.classList.add('active'); target.style.display = target.classList.contains('flex-col') ? 'flex' : 'block';
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            const icon = btn.querySelector('.nav-icon'); icon.classList.remove('ph-fill'); icon.classList.add('ph'); btn.classList.remove('text-blue-600'); btn.classList.add('text-slate-400');
+            if (btn.dataset.target === id) { btn.classList.add('text-blue-600'); btn.classList.remove('text-slate-400'); icon.classList.remove('ph'); icon.classList.add('ph-fill'); if(id === 'ai') { btn.classList.remove('text-blue-600'); btn.classList.add('text-purple-600'); } }
+        });
+        if (id === 'subjects') app.subjects.render(); if (id === 'history') app.history.render(); if (id === 'calendar') app.calendar.render(); if (id === 'timer' && !app.timer.isRunning) app.timer.populateSelectors(); if (id === 'ai') app.ai.scrollToBottom();
+    }
+};
+
+const TimerModule = {
+    isRunning: false, isPaused: false, mode: 'focus', timerType: 'countdown', startTimestamp: null, plannedDurationMs: 0, accumulatedPauseMs: 0, pausedAt: null, durationSeconds: 1500, remainingSeconds: 1500, elapsedSeconds: 0, timerInterval: null, currentSession: {}, elSetup: document.getElementById('timer-setup'), elActive: document.getElementById('timer-active'), elDisplay: document.getElementById('timer-display'), elProgress: document.getElementById('timer-progress-circle'), elBtnPause: document.getElementById('timer-pause-btn'),
+    init: function() {
+        const btnFocus = document.getElementById('mode-focus-btn'), btnRev = document.getElementById('mode-revision-btn'), btnBreak = document.getElementById('mode-break-btn'), sld = document.getElementById('timer-duration-slider'), disp = document.getElementById('timer-duration-display');
+        sld.addEventListener('input', (e) => disp.textContent = `${e.target.value} m`);
+        const setMode = (m) => {
+            this.mode = m; [btnFocus, btnRev, btnBreak].forEach(b => b.className = "flex-1 bg-slate-100 text-slate-600 font-medium py-2 rounded-lg border-2 border-transparent transition");
+            if(m === 'focus') { btnFocus.className = "flex-1 bg-blue-100 text-blue-700 font-medium py-2 rounded-lg border-2 border-blue-500 transition"; sld.value = 25; disp.textContent = '25 m'; }
+            else if(m === 'revision') { btnRev.className = "flex-1 bg-purple-100 text-purple-700 font-medium py-2 rounded-lg border-2 border-purple-500 transition"; sld.value = 20; disp.textContent = '20 m'; }
+            else { btnBreak.className = "flex-1 bg-emerald-100 text-emerald-700 font-medium py-2 rounded-lg border-2 border-emerald-500 transition"; sld.value = 5; disp.textContent = '5 m'; }
+        };
+        btnFocus.onclick = () => setMode('focus'); btnRev.onclick = () => setMode('revision'); btnBreak.onclick = () => setMode('break');
+        const btnCd = document.getElementById('type-countdown-btn'), btnSw = document.getElementById('type-stopwatch-btn'), durCont = document.getElementById('duration-container');
+        const setType = (t) => {
+            this.timerType = t;
+            if(t === 'countdown') { btnCd.className="flex-1 bg-blue-100 text-blue-700 font-medium py-2 rounded-lg border-2 border-blue-500 transition"; btnSw.className="flex-1 bg-slate-100 text-slate-600 font-medium py-2 rounded-lg border-2 border-transparent transition"; durCont.classList.remove('hidden'); }
+            else { btnSw.className="flex-1 bg-blue-100 text-blue-700 font-medium py-2 rounded-lg border-2 border-blue-500 transition"; btnCd.className="flex-1 bg-slate-100 text-slate-600 font-medium py-2 rounded-lg border-2 border-transparent transition"; durCont.classList.add('hidden'); }
+        };
+        btnCd.onclick = () => setType('countdown'); btnSw.onclick = () => setType('stopwatch');
+        document.getElementById('timer-subject-select').addEventListener('change', (e) => this.updateChapterSelector(e.target.value)); document.getElementById('timer-chapter-select').addEventListener('change', (e) => this.updateTopicSelector(document.getElementById('timer-subject-select').value, e.target.value));
+        document.getElementById('timer-start-btn').onclick = () => this.start(); this.elBtnPause.onclick = () => this.togglePause(); document.getElementById('timer-stop-btn').onclick = () => this.stop();
+        document.addEventListener("visibilitychange", () => { if (!document.hidden && this.isRunning && !this.isPaused) this.tick(); });
+    },
+    populateSelectors: function() {
+        const data = dataLayer.get(), sel = document.getElementById('timer-subject-select'); sel.innerHTML = '';
+        if(!data.subjects.length) { sel.innerHTML = '<option value="">No subjects found</option>'; return; }
+        data.subjects.forEach(s => { const o = document.createElement('option'); o.value = s.id; o.textContent = s.name; sel.appendChild(o); });
+        this.updateChapterSelector(data.subjects[0].id);
+    },
+    updateChapterSelector: function(sid) {
+        const sub = dataLayer.get().subjects.find(s => s.id === sid), sel = document.getElementById('timer-chapter-select'); sel.innerHTML = '';
+        if(sub && sub.chapters && sub.chapters.length) { sub.chapters.forEach(c => { const o = document.createElement('option'); o.value = c.id; o.textContent = c.name; sel.appendChild(o); }); this.updateTopicSelector(sid, sub.chapters[0].id); } else { sel.innerHTML = '<option value="">No chapters</option>'; this.updateTopicSelector(null, null); }
+    },
+    updateTopicSelector: function(sid, cid) {
+        const sel = document.getElementById('timer-topic-select'); sel.innerHTML = ''; if (!sid || !cid) { sel.innerHTML = '<option value="">No topics</option>'; return; }
+        const chap = dataLayer.get().subjects.find(s => s.id === sid)?.chapters?.find(c => c.id === cid);
+        if(chap && chap.topics && chap.topics.length) { chap.topics.forEach(t => { const o = document.createElement('option'); o.value = t.id; o.textContent = t.name; sel.appendChild(o); }); } else sel.innerHTML = '<option value="">No topics</option>';
+    },
+    start: function() {
+        const sid = document.getElementById('timer-subject-select').value, cid = document.getElementById('timer-chapter-select').value, tid = document.getElementById('timer-topic-select').value, mins = parseInt(document.getElementById('timer-duration-slider').value);
+        if ((this.mode === 'focus' || this.mode === 'revision') && (!sid || !cid || !tid)) return modal.show({title: "Wait", desc: "Select subject, chapter, and topic.", type: "alert"});
+        this.currentSession = { subjectId: sid, chapterId: cid, topicId: tid, durationMins: mins };
+        this.plannedDurationMs = this.timerType === 'countdown' ? (mins * 60000) : 0; this.startTimestamp = Date.now(); this.accumulatedPauseMs = 0; this.pausedAt = null; this.durationSeconds = this.timerType === 'countdown' ? (mins * 60) : 0; this.remainingSeconds = this.durationSeconds; this.elapsedSeconds = 0; this.isRunning = true; this.isPaused = false;
+        const subjObj = dataLayer.get().subjects.find(s=>s.id===sid), chapObj = subjObj?.chapters?.find(c=>c.id===cid), topObj = chapObj?.topics?.find(t=>t.id===tid), isSt = (this.mode === 'focus' || this.mode === 'revision');
+        document.getElementById('active-subject-text').textContent = isSt ? subjObj?.name : "Break Time"; document.getElementById('active-chapter-text').textContent = isSt ? chapObj?.name : ""; document.getElementById('active-chapter-text').style.display = isSt ? 'block' : 'none'; document.getElementById('active-topic-text').textContent = isSt ? topObj?.name : "Relax and recharge";
+        const bdg = document.getElementById('active-mode-badge');
+        if (this.mode === 'focus') { bdg.textContent = 'Focus Mode'; bdg.className = 'mt-3 inline-block px-3 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded-full uppercase tracking-wider'; this.elProgress.style.stroke = '#2563eb'; }
+        else if (this.mode === 'revision') { bdg.textContent = 'Revision Mode'; bdg.className = 'mt-3 inline-block px-3 py-1 bg-purple-100 text-purple-700 text-xs font-bold rounded-full uppercase tracking-wider'; this.elProgress.style.stroke = '#a855f7'; }
+        else { bdg.textContent = 'Break Mode'; bdg.className = 'mt-3 inline-block px-3 py-1 bg-emerald-100 text-emerald-700 text-xs font-bold rounded-full uppercase tracking-wider'; this.elProgress.style.stroke = '#10b981'; }
+        this.elSetup.classList.add('hidden'); this.elActive.classList.remove('hidden'); this.elActive.classList.add('flex'); this.elBtnPause.innerHTML = '<i class="ph-fill ph-pause text-xl"></i> Pause';
+        this.updateDisplay(); this.timerInterval = setInterval(() => this.tick(), 1000);
+    },
+    tick: function() {
+        if (this.isPaused) return;
+        const eMs = Date.now() - this.startTimestamp - this.accumulatedPauseMs;
+        if (this.timerType === 'countdown') { this.remainingSeconds = Math.max(0, Math.ceil((this.plannedDurationMs - eMs) / 1000)); this.updateDisplay(); if (this.remainingSeconds <= 0) this.completeSession(); }
+        else { this.elapsedSeconds = Math.floor(eMs / 1000); this.updateDisplay(); }
+    },
+    updateDisplay: function() {
+        if (this.timerType === 'countdown') { const m = Math.floor(this.remainingSeconds / 60).toString().padStart(2, '0'), s = (this.remainingSeconds % 60).toString().padStart(2, '0'); this.elDisplay.textContent = `${m}:${s}`; this.elProgress.style.strokeDashoffset = 283 - (this.remainingSeconds / this.durationSeconds) * 283; }
+        else { const h = Math.floor(this.elapsedSeconds / 3600), m = Math.floor((this.elapsedSeconds % 3600) / 60).toString().padStart(2, '0'), s = (this.elapsedSeconds % 60).toString().padStart(2, '0'); this.elDisplay.textContent = h > 0 ? `${h}:${m}:${s}` : `${m}:${s}`; this.elProgress.style.strokeDashoffset = 0; }
+    },
+    togglePause: function() {
+        this.isPaused = !this.isPaused;
+        if (this.isPaused) { this.pausedAt = Date.now(); this.elBtnPause.innerHTML = '<i class="ph-fill ph-play text-xl"></i> Resume'; this.elProgress.style.transition = 'none'; }
+        else { this.accumulatedPauseMs += (Date.now() - this.pausedAt); this.pausedAt = null; this.elBtnPause.innerHTML = '<i class="ph-fill ph-pause text-xl"></i> Pause'; setTimeout(() => this.elProgress.style.transition = 'stroke-dashoffset 1s linear', 50); }
+    },
+    stop: async function() {
+        if (await modal.show({title: "End Session early?", desc: "Session will be saved with elapsed time.", type: "confirm"})) {
+            let eMs = Date.now() - this.startTimestamp - this.accumulatedPauseMs; if (this.isPaused) eMs = this.pausedAt - this.startTimestamp - this.accumulatedPauseMs;
+            if (Math.round(eMs / 60000) > 0 && (this.mode === 'focus' || this.mode === 'revision')) this.saveSession(this.startTimestamp, this.startTimestamp + eMs);
+            this.reset();
+        }
+    },
+    completeSession: function() {
+        clearInterval(this.timerInterval);
+        if (this.mode === 'focus' || this.mode === 'revision') { this.saveSession(this.startTimestamp, this.startTimestamp + this.plannedDurationMs); modal.show({title: "Session Complete!", desc: `You studied for ${this.currentSession.durationMins} mins.`, type: "alert"}).then(() => this.reset()); }
+        else modal.show({title: "Break Over!", desc: "Ready to focus?", type: "alert"}).then(() => this.reset());
+    },
+    saveSession: function(sT, eT) {
+        const today = calUtils.toYYYYMMDD(new Date());
+        dataLayer.addSession({ id: 'sess_' + utils.generateId(), date: today, subjectId: this.currentSession.subjectId, chapterId: this.currentSession.chapterId, topicId: this.currentSession.topicId, startTime: sT, endTime: eT, mode: this.mode, timestamp: Date.now() });
+        if (this.mode === 'revision') {
+            const data = dataLayer.get(), top = data.subjects.find(s => s.id === this.currentSession.subjectId)?.chapters?.find(c => c.id === this.currentSession.chapterId)?.topics?.find(t => t.id === this.currentSession.topicId);
+            if (top) { top.needsRevision = false; top.lastRevisedDate = today; dataLayer.save(data); app.ui.renderHome(); if (app.subjects) app.subjects.render(); }
+        }
+    },
+    reset: function() { clearInterval(this.timerInterval); this.isRunning = false; this.isPaused = false; this.elActive.classList.add('hidden'); this.elActive.classList.remove('flex'); this.elSetup.classList.remove('hidden'); this.elProgress.style.strokeDashoffset = 0; }
+};
+
+const SubjectsModule = {
+    elList: document.getElementById('subjects-list'),
+    render: function() {
+        const data = dataLayer.get(); this.elList.innerHTML = '';
+        if (!data.subjects.length) { this.elList.innerHTML = `<div class="text-center py-10 text-slate-500">No subjects yet. Add one to start.</div>`; return; }
+        data.subjects.forEach(sub => {
+            const card = document.createElement('div'); card.className = "bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden";
+            card.innerHTML = `<div class="p-4 text-white flex justify-between items-center ${sub.color || 'bg-blue-500'}"><h3 class="font-bold text-lg">${sub.name}</h3><div class="flex gap-2"><button class="add-chapter-btn p-1 bg-white/20 hover:bg-white/30 rounded-lg" data-id="${sub.id}"><i class="ph-bold ph-folder-plus"></i></button><button class="del-subj-btn p-1 bg-black/10 hover:bg-black/20 rounded-lg" data-id="${sub.id}"><i class="ph-bold ph-trash"></i></button></div></div>`;
+            if(!sub.chapters || !sub.chapters.length) { card.innerHTML += `<div class="p-4 text-sm text-slate-500 text-center italic">No chapters added.</div>`; } else {
+                sub.chapters.forEach(chap => {
+                    const cCont = document.createElement('div'); cCont.className = "border-t border-slate-100 bg-slate-50";
+                    cCont.innerHTML = `<div class="p-3 pl-4 flex justify-between items-center bg-slate-100/50"><span class="font-semibold text-slate-700 text-sm flex items-center gap-1.5"><i class="ph-fill ph-folder-open text-slate-400"></i> ${chap.name}</span><div class="flex gap-1"><button class="add-topic-btn text-blue-500 hover:text-blue-700 p-1" data-sid="${sub.id}" data-cid="${chap.id}"><i class="ph-bold ph-plus"></i></button><button class="del-chapter-btn text-slate-400 hover:text-red-500 p-1" data-sid="${sub.id}" data-cid="${chap.id}"><i class="ph-bold ph-trash"></i></button></div></div>`;
+                    const tList = document.createElement('div'); tList.className = "divide-y divide-slate-100 pl-4 bg-white";
+                    if (!chap.topics || !chap.topics.length) { tList.innerHTML = `<div class="p-3 text-xs text-slate-500 italic">No topics.</div>`; } else {
+                        chap.topics.forEach(top => {
+                            const tRow = document.createElement('div'); tRow.className = "p-3 pl-4 flex justify-between items-center hover:bg-slate-50";
+                            tRow.innerHTML = `<div class="text-slate-600 text-sm flex items-center gap-2 truncate pr-2"><span class="truncate">${top.name}</span>${top.lastRevisedDate ? `<span class="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded shrink-0 whitespace-nowrap">Revised: ${utils.formatDate(top.lastRevisedDate)}</span>` : ''}</div><div class="flex gap-1 shrink-0"><button class="toggle-rev-btn p-1 transition" data-sid="${sub.id}" data-cid="${chap.id}" data-tid="${top.id}"><i class="${top.needsRevision ? "ph-fill text-purple-500" : "ph text-slate-400 hover:text-purple-500"} ph-flag text-lg"></i></button><button class="del-topic-btn text-slate-300 hover:text-red-500 transition p-1" data-sid="${sub.id}" data-cid="${chap.id}" data-tid="${top.id}"><i class="ph-fill ph-x-circle text-lg"></i></button></div>`;
+                            tList.appendChild(tRow);
+                        });
+                    }
+                    cCont.appendChild(tList); card.appendChild(cCont);
+                });
+            }
+            this.elList.appendChild(card);
+        });
+        document.querySelectorAll('.add-chapter-btn').forEach(btn => btn.onclick = (e) => this.promptAddChapter(e.currentTarget.dataset.id));
+        document.querySelectorAll('.add-topic-btn').forEach(btn => btn.onclick = (e) => this.promptAddTopic(e.currentTarget.dataset.sid, e.currentTarget.dataset.cid));
+        document.querySelectorAll('.del-subj-btn').forEach(btn => btn.onclick = (e) => this.deleteSubject(e.currentTarget.dataset.id));
+        document.querySelectorAll('.del-chapter-btn').forEach(btn => btn.onclick = (e) => this.deleteChapter(e.currentTarget.dataset.sid, e.currentTarget.dataset.cid));
+        document.querySelectorAll('.del-topic-btn').forEach(btn => btn.onclick = (e) => this.deleteTopic(e.currentTarget.dataset.sid, e.currentTarget.dataset.cid, e.currentTarget.dataset.tid));
+        document.querySelectorAll('.toggle-rev-btn').forEach(btn => btn.onclick = (e) => this.toggleRevision(e.currentTarget.dataset.sid, e.currentTarget.dataset.cid, e.currentTarget.dataset.tid));
+    },
+    toggleRevision: function(sid, cid, tid) { const data = dataLayer.get(), t = data.subjects.find(s => s.id === sid)?.chapters?.find(c => c.id === cid)?.topics?.find(t => t.id === tid); if (t) { t.needsRevision = !t.needsRevision; dataLayer.save(data); this.render(); app.ui.renderHome(); } },
+    promptAddSubject: async function() { const name = await modal.show({ title: "New Subject", type: "prompt", placeholder: "e.g., Biology", required: true }); if (name) { const data = dataLayer.get(); data.subjects.push({ id: 'sub_' + utils.generateId(), name: name, color: utils.getSubjectColor(data.subjects.length), chapters: [] }); dataLayer.save(data); this.render(); } },
+    promptAddChapter: async function(sid) { const name = await modal.show({ title: "New Chapter", type: "prompt", placeholder: "e.g., Cell Structure", required: true }); if (name) { const data = dataLayer.get(), sub = data.subjects.find(s => s.id === sid); if (sub) { sub.chapters.push({ id: 'c_' + utils.generateId(), name: name, topics: [] }); dataLayer.save(data); this.render(); } } },
+    promptAddTopic: async function(sid, cid) { const name = await modal.show({ title: "New Topic", type: "prompt", placeholder: "e.g., Mitosis", required: true }); if (name) { const data = dataLayer.get(), chap = data.subjects.find(s => s.id === sid)?.chapters?.find(c => c.id === chapterId); if (chap) { chap.topics.push({ id: 't_' + utils.generateId(), name: name, needsRevision: false, lastRevisedDate: null }); dataLayer.save(data); this.render(); } } },
+    deleteSubject: async function(id) { if (await modal.show({title: "Delete Subject?", type: "confirm"})) { const data = dataLayer.get(); data.subjects = data.subjects.filter(s => s.id !== id); dataLayer.save(data); this.render(); } },
+    deleteChapter: async function(sid, cid) { if(await modal.show({title: "Delete Chapter?", type: "confirm"})) { const data = dataLayer.get(), sub = data.subjects.find(s => s.id === sid); if (sub) { sub.chapters = sub.chapters.filter(c => c.id !== cid); dataLayer.save(data); this.render(); } } },
+    deleteTopic: async function(sid, cid, tid) { if(await modal.show({title: "Delete Topic?", type: "confirm"})) { const data = dataLayer.get(), chap = data.subjects.find(s => s.id === sid)?.chapters?.find(c => c.id === cid); if (chap) { chap.topics = chap.topics.filter(t => t.id !== tid); dataLayer.save(data); this.render(); } } }
+};
+
+const HistoryModule = {
+    elList: document.getElementById('history-list'),
+    render: function() {
+        const data = dataLayer.get(); this.elList.innerHTML = '';
+        let todayMins = 0, weekMins = 0; const todayStr = calUtils.toYYYYMMDD(new Date()), oneWeekAgo = Date.now() - 604800000;
+        const sorted = [...data.sessions].sort((a,b) => b.timestamp - a.timestamp);
+        if (!sorted.length) { this.elList.innerHTML = `<div class="text-center py-10 text-slate-500">No study history yet.</div>`; }
+        sorted.forEach(s => {
+            const mins = s.startTime && s.endTime ? Math.round((s.endTime - s.startTime) / 60000) : (s.duration || 0);
+            if (s.mode === 'focus' || s.mode === 'revision') { if (s.date === todayStr) todayMins += mins; if (s.timestamp >= oneWeekAgo) weekMins += mins; }
+            const sub = data.subjects.find(x => x.id === s.subjectId), chap = sub?.chapters?.find(c => c.id === s.chapterId), top = chap?.topics?.find(t => t.id === s.topicId);
+            const icon = s.mode === 'revision' ? '<i class="ph-fill ph-arrows-clockwise text-2xl text-purple-500"></i>' : (s.mode === 'break' ? '<i class="ph-fill ph-coffee text-2xl text-emerald-500"></i>' : '<i class="ph-fill ph-book-open text-2xl"></i>');
+            const item = document.createElement('div'); item.className = "bg-white p-4 rounded-xl border border-slate-100 flex items-center justify-between";
+            item.innerHTML = `<div class="flex items-center gap-4 truncate"><div class="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center flex-shrink-0 ${sub ? sub.color.replace('bg-','text-') : 'text-slate-500'}">${icon}</div><div class="min-w-0"><h4 class="font-bold text-slate-800 truncate">${sub ? sub.name : 'Unknown'}</h4><p class="text-xs text-slate-500 truncate">${chap ? chap.name : 'Unknown'} &bull; ${top ? top.name : 'Unknown'} &bull; ${s.date === todayStr ? 'Today' : utils.formatDate(s.date)}</p></div></div><div class="font-bold text-slate-700 bg-slate-50 px-3 py-1 rounded-lg ml-2 shrink-0">${mins}m</div>`;
+            this.elList.appendChild(item);
+        });
+        document.getElementById('history-total-today').textContent = utils.formatTime(todayMins); document.getElementById('history-total-week').textContent = utils.formatTime(weekMins);
+    }
+};
+
+const CalendarModule = {
+    viewYear: new Date().getFullYear(), viewMonth: new Date().getMonth(), selectedDateStr: null, elGrid: document.getElementById('cal-grid'), elMonthYear: document.getElementById('cal-month-year'), modalEl: document.getElementById('calendar-date-modal'), modalContent: document.getElementById('calendar-date-content'),
+    init: function() {
+        document.getElementById('cal-prev').onclick = () => this.changeMonth(-1); document.getElementById('cal-next').onclick = () => this.changeMonth(1);
+        document.getElementById('cal-today-btn').onclick = () => { const n = new Date(); this.viewYear = n.getFullYear(); this.viewMonth = n.getMonth(); this.render(); };
+        document.getElementById('cal-modal-close').onclick = () => this.closeDateModal();
+        document.getElementById('cal-show-plan-btn').onclick = () => { document.getElementById('cal-plan-form').classList.remove('hidden'); document.getElementById('cal-show-plan-btn').classList.add('hidden'); };
+        document.getElementById('cal-plan-cancel').onclick = () => { document.getElementById('cal-plan-form').classList.add('hidden'); document.getElementById('cal-show-plan-btn').classList.remove('hidden'); };
+        document.getElementById('cal-plan-subject').addEventListener('change', (e) => this.updatePlanChapterSelector(e.target.value)); document.getElementById('cal-plan-chapter').addEventListener('change', (e) => this.updatePlanTopicSelector(document.getElementById('cal-plan-subject').value, e.target.value));
+        document.getElementById('cal-plan-save').onclick = () => this.savePlannedSession();
+    },
+    changeMonth: function(offset) { this.viewMonth += offset; if (this.viewMonth > 11) { this.viewMonth = 0; this.viewYear++; } else if (this.viewMonth < 0) { this.viewMonth = 11; this.viewYear--; } this.render(); },
+    render: function() {
+        const data = dataLayer.get(), todayStr = calUtils.toYYYYMMDD(new Date()), goal = data.settings.dailyGoalMinutes || 240;
+        this.elMonthYear.textContent = `${["January","February","March","April","May","June","July","August","September","October","November","December"][this.viewMonth]} ${this.viewYear}`;
+        const dailyMins = {}; data.sessions.forEach(s => { if (s.mode === 'focus' || s.mode === 'revision') dailyMins[s.date] = (dailyMins[s.date] || 0) + (s.startTime && s.endTime ? Math.round((s.endTime - s.startTime)/60000) : (s.duration || 0)); });
+        let moTot = 0, met = 0, days = 0; const firstDay = calUtils.safeDate(this.viewYear, this.viewMonth, 1), daysInMo = calUtils.safeDate(this.viewYear, this.viewMonth + 1, 0).getDate();
+        this.elGrid.innerHTML = ''; for (let i = 0; i < firstDay.getDay(); i++) this.elGrid.appendChild(document.createElement('div'));
+        for (let day = 1; day <= daysInMo; day++) {
+            const dateStr = calUtils.toYYYYMMDD(calUtils.safeDate(this.viewYear, this.viewMonth, day)), mins = dailyMins[dateStr] || 0;
+            if (mins > 0) { moTot += mins; days++; if (mins >= goal) met++; }
+            const cell = document.createElement('button'); let cls = "aspect-square rounded-xl flex items-center justify-center text-sm font-semibold transition-all transform hover:scale-105 hover:shadow-md relative ";
+            if (mins === 0) cls += "bg-white border-2 border-slate-100 text-slate-500 hover:border-slate-300"; else if (mins < (goal * 0.4)) cls += "bg-blue-100 text-blue-700 border-2 border-blue-100"; else if (mins < goal) cls += "bg-blue-400 text-white border-2 border-blue-400 shadow-sm"; else cls += "bg-blue-600 text-white shadow-md border-2 border-blue-600 ring-2 ring-blue-200 ring-offset-1";
+            if (dateStr === todayStr) cls = cls.replace('border-slate-100', 'border-blue-300') + " ring-2 ring-offset-2 ring-blue-400";
+            cell.className = cls; cell.innerHTML = `<span>${day}</span>`;
+            if (data.plannedSessions.some(p => p.date === dateStr)) cell.innerHTML += `<div class="absolute bottom-1 w-1.5 h-1.5 rounded-full ${mins >= (goal * 0.4) ? 'bg-white' : 'bg-orange-400'}"></div>`;
+            cell.onclick = () => this.openDateModal(dateStr); this.elGrid.appendChild(cell);
+        }
+        document.getElementById('cal-stat-total').textContent = utils.formatTime(moTot); document.getElementById('cal-stat-met').textContent = met; document.getElementById('cal-stat-days').textContent = days; document.getElementById('cal-stat-avg').textContent = `${days > 0 ? Math.round(moTot / daysInMo) : 0}m`;
+    },
+    openDateModal: function(dateStr) {
+        this.selectedDateStr = dateStr; const data = dataLayer.get(), goal = data.settings.dailyGoalMinutes || 240; document.getElementById('cal-modal-title').textContent = calUtils.parseYYYYMMDD(dateStr).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+        const acts = data.sessions.filter(s => s.date === dateStr && (s.mode === 'focus' || s.mode === 'revision')), plans = data.plannedSessions.filter(s => s.date === dateStr);
+        let aMins = 0; acts.forEach(s => { const m = s.startTime && s.endTime ? Math.round((s.endTime - s.startTime)/60000) : (s.duration || 0); s._tempMins = m; aMins += m; });
+        let pMins = 0; plans.forEach(p => pMins += Number(p.plannedMinutes || 0));
+        document.getElementById('cal-modal-actual').textContent = utils.formatTime(aMins); document.getElementById('cal-modal-planned').textContent = utils.formatTime(pMins);
+        const pct = Math.min(100, Math.round((aMins / goal) * 100)); document.getElementById('cal-modal-pct').textContent = `${pct}%`; document.getElementById('cal-modal-ring').style.strokeDasharray = `${pct}, 100`; document.getElementById('cal-modal-ring').style.color = pct >= 100 ? '#10b981' : '#3b82f6';
+        const elAL = document.getElementById('cal-modal-actual-list'); elAL.innerHTML = '';
+        if (!acts.length) elAL.innerHTML = `<div class="text-sm text-slate-400 italic py-2">No focus sessions recorded.</div>`; else acts.forEach(s => { const sub = data.subjects.find(x => x.id === s.subjectId), chap = sub?.chapters?.find(c => c.id === s.chapterId), top = chap?.topics?.find(t => t.id === s.topicId); elAL.innerHTML += `<div class="flex justify-between items-center bg-slate-50 border border-slate-100 p-3 rounded-xl"><div class="flex items-center gap-2 truncate pr-2">${s.mode === 'revision' ? '<i class="ph-fill ph-arrows-clockwise text-purple-500 shrink-0"></i>' : ''}<div class="truncate"><div class="font-bold text-sm text-slate-700 truncate">${sub?.name || 'Unknown'}</div><div class="text-xs text-slate-500 truncate">${chap?.name || 'Unknown'} &bull; ${top?.name || 'General'}</div></div></div><div class="font-bold text-blue-600 bg-blue-100 px-2 py-1 rounded-lg text-sm shrink-0">${s._tempMins}m</div></div>`; });
+        const elPL = document.getElementById('cal-modal-planned-list'); elPL.innerHTML = '';
+        if (!plans.length) elPL.innerHTML = `<div class="text-sm text-slate-400 italic py-2">No planned sessions.</div>`; else plans.forEach(p => { const sub = data.subjects.find(x => x.id === p.subjectId), chap = sub?.chapters?.find(c => c.id === p.chapterId), top = p.topicId ? chap?.topics?.find(t => t.id === p.topicId) : null, isC = acts.some(a => a.subjectId === p.subjectId && a.chapterId === p.chapterId); elPL.innerHTML += `<div class="flex items-center gap-3 border p-3 rounded-xl ${isC ? 'bg-emerald-50 border-emerald-100 opacity-70' : 'bg-white border-orange-200 shadow-sm'}"><i class="ph-fill ${isC ? 'ph-check-circle text-emerald-500' : 'ph-circle text-orange-400'} text-xl shrink-0"></i><div class="flex-grow truncate"><div class="font-bold text-sm text-slate-700 truncate">${sub?.name || 'Unknown'}</div><div class="text-xs text-slate-500 truncate">${chap?.name || 'Unknown'} ${top ? '&bull; '+top.name : ''}</div></div><div class="font-bold text-slate-600 text-sm shrink-0">${p.plannedMinutes}m</div></div>`; });
+        this.populatePlanSubjectSelector(); document.getElementById('cal-plan-form').classList.add('hidden'); document.getElementById('cal-show-plan-btn').classList.remove('hidden'); document.getElementById('cal-plan-mins').value = 60;
+        this.modalEl.classList.remove('hidden'); setTimeout(() => { this.modalEl.classList.remove('opacity-0'); this.modalContent.classList.remove('scale-95'); }, 10);
+    },
+    closeDateModal: function() { this.modalEl.classList.add('opacity-0'); this.modalContent.classList.add('scale-95'); setTimeout(() => { this.modalEl.classList.add('hidden'); }, 200); },
+    populatePlanSubjectSelector: function() { const data = dataLayer.get(), sel = document.getElementById('cal-plan-subject'); sel.innerHTML = data.subjects.length ? '' : '<option value="">No subjects found</option>'; data.subjects.forEach(sub => { const o = document.createElement('option'); o.value = sub.id; o.textContent = sub.name; sel.appendChild(o); }); if(data.subjects.length > 0) this.updatePlanChapterSelector(data.subjects[0].id); },
+    updatePlanChapterSelector: function(sid) { const sub = dataLayer.get().subjects.find(s => s.id === sid), sel = document.getElementById('cal-plan-chapter'); sel.innerHTML = ''; if(sub && sub.chapters && sub.chapters.length) { sub.chapters.forEach(c => { const o = document.createElement('option'); o.value = c.id; o.textContent = c.name; sel.appendChild(o); }); this.updatePlanTopicSelector(sid, sub.chapters[0].id); } else { sel.innerHTML = '<option value="">No chapters</option>'; this.updatePlanTopicSelector(null, null); } },
+    updatePlanTopicSelector: function(sid, cid) { const sel = document.getElementById('cal-plan-topic'); sel.innerHTML = '<option value="">Any Topic (Optional)</option>'; if (!sid || !cid) return; const chap = dataLayer.get().subjects.find(s => s.id === sid)?.chapters?.find(c => c.id === cid); if(chap && chap.topics && chap.topics.length) { chap.topics.forEach(t => { const o = document.createElement('option'); o.value = t.id; o.textContent = t.name; sel.appendChild(o); }); } },
+    savePlannedSession: function() { const sid = document.getElementById('cal-plan-subject').value, cid = document.getElementById('cal-plan-chapter').value, tid = document.getElementById('cal-plan-topic').value, mins = parseInt(document.getElementById('cal-plan-mins').value); if (!sid || !cid || isNaN(mins) || mins <= 0) return; const data = dataLayer.get(); data.plannedSessions.push({ id: 'plan_' + utils.generateId(), date: this.selectedDateStr, subjectId: sid, chapterId: cid, topicId: tid || null, plannedMinutes: mins, timestamp: Date.now() }); dataLayer.save(data); this.openDateModal(this.selectedDateStr); this.render(); }
+};
+
+const UIModule = {
+    renderHome: function() {
+        const data = dataLayer.get(), todayStr = calUtils.toYYYYMMDD(new Date()); let todayMins = 0; const sBrk = {};
+        data.sessions.forEach(s => { if (s.date === todayStr && (s.mode === 'focus' || s.mode === 'revision')) { const m = s.startTime && s.endTime ? Math.round((s.endTime - s.startTime) / 60000) : (s.duration || 0); todayMins += m; sBrk[s.subjectId] = (sBrk[s.subjectId] || 0) + m; } });
+        document.getElementById('home-today-time').textContent = utils.formatTime(todayMins); document.getElementById('home-daily-target').textContent = utils.formatTime(data.settings.dailyGoalMinutes);
+        const pct = Math.min(100, Math.round((todayMins / (data.settings.dailyGoalMinutes || 1)) * 100)); document.getElementById('home-progress-bar').style.width = pct + '%'; document.getElementById('home-progress-text').textContent = pct + '%'; document.getElementById('home-streak-count').textContent = data.streak.count; document.getElementById('home-streak-text').textContent = data.streak.count > 0 ? "You're on fire!" : "Start a streak today!";
+        const brkCont = document.getElementById('home-subject-breakdown'); brkCont.innerHTML = '';
+        if (!Object.keys(sBrk).length) { brkCont.innerHTML = '<div class="text-center text-slate-500 py-4 text-sm">No study sessions today.</div>'; } else { Object.keys(sBrk).forEach(id => { const sub = data.subjects.find(s => s.id === id); if(sub) { const m = sBrk[id], p = Math.min(100, Math.round((m / data.settings.dailyGoalMinutes) * 100)); brkCont.innerHTML += `<div><div class="flex justify-between text-sm mb-1"><span class="font-medium text-slate-700">${sub.name}</span><span class="text-slate-500">${utils.formatTime(m)}</span></div><div class="w-full bg-slate-100 rounded-full h-2"><div class="${sub.color} h-2 rounded-full" style="width: ${p}%"></div></div></div>`; } }); }
+        const rCont = document.getElementById('home-revision-list'); let rItems = []; data.subjects.forEach(s => s.chapters?.forEach(c => c.topics?.forEach(t => { if (t.needsRevision) rItems.push({ sub: s, chap: c, top: t }); })));
+        rItems.sort((a, b) => (a.top.lastRevisedDate ? calUtils.parseYYYYMMDD(a.top.lastRevisedDate).getTime() : 0) - (b.top.lastRevisedDate ? calUtils.parseYYYYMMDD(b.top.lastRevisedDate).getTime() : 0));
+        rCont.innerHTML = ''; if (!rItems.length) { rCont.innerHTML = '<div class="text-center text-slate-500 py-4 text-sm">Nothing flagged for revision.</div>'; } else { const todayMs = calUtils.parseYYYYMMDD(todayStr).getTime(); rItems.forEach(i => { let dDisp = "Never revised"; if (i.top.lastRevisedDate) { const diff = Math.round((todayMs - calUtils.parseYYYYMMDD(i.top.lastRevisedDate).getTime()) / 86400000); dDisp = diff <= 0 ? "Today" : `${diff} days ago`; } rCont.innerHTML += `<div class="flex justify-between items-center bg-purple-50 p-3 rounded-xl border border-purple-100"><div class="truncate pr-2"><div class="font-bold text-sm text-slate-800 truncate">${i.top.name}</div><div class="text-[10px] font-semibold text-slate-500 uppercase tracking-wide truncate mt-0.5">${i.sub.name} &bull; ${i.chap.name}</div></div><div class="text-xs font-medium text-purple-600 bg-white px-2 py-1 rounded-lg border border-purple-200 whitespace-nowrap shrink-0">${dDisp}</div></div>`; }); }
+    }
+};
+
+const AIModule = {
+    init: function() {
+        // AI Integration removed; keeping empty init to prevent errors
+    },
+    scrollToBottom: function() {
+        // Kept to safely handle nav switching without crashing
+    }
+};
+
+const SettingsModule = {
+    el: document.getElementById('settings-modal'), content: document.getElementById('settings-modal-content'),
+    init: function() {
+        document.getElementById('settings-btn').onclick = () => this.open(); document.getElementById('settings-close').onclick = () => this.close(); document.getElementById('btn-export-backup').onclick = () => this.export();
+        const fInp = document.getElementById('file-import-input'); document.getElementById('btn-import-backup').onclick = () => fInp.click(); fInp.addEventListener('change', (e) => this.handleImport(e));
+    },
+    open: function() { this.el.classList.remove('hidden'); setTimeout(() => { this.el.classList.remove('opacity-0'); this.content.classList.remove('scale-95'); }, 10); },
+    close: function() { this.el.classList.add('opacity-0'); this.content.classList.add('scale-95'); setTimeout(() => this.el.classList.add('hidden'), 200); },
+    export: function() {
+        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(dataLayer.get(), null, 2)], { type: "application/json" })); a.download = `studyos-backup-${calUtils.toYYYYMMDD(new Date())}.json`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(a.href); modal.show({title: "Export Complete", desc: "Backup downloaded.", type: "alert"});
+    },
+    handleImport: function(e) {
+        const file = e.target.files[0]; if (!file) return; const r = new FileReader();
+        r.onload = async (ev) => {
+            try { const d = JSON.parse(ev.target.result); if (!d || !Array.isArray(d.subjects) || !Array.isArray(d.sessions)) throw new Error("Invalid format"); this.close(); if (await modal.show({ title: "Overwrite Data?", desc: "Importing will replace all current data. Continue?", type: "confirm" })) { dataLayer.save(d); await modal.show({title: "Import Complete", desc: "App will reload.", type: "alert"}); window.location.reload(); } else this.open(); }
+            catch (err) { this.close(); await modal.show({title: "Import Failed", desc: "Invalid backup file.", type: "alert"}); this.open(); } finally { e.target.value = ''; }
+        }; r.readAsText(file);
+    }
+};
+
+const app = {
+    timer: TimerModule, subjects: SubjectsModule, history: HistoryModule, calendar: CalendarModule, settings: SettingsModule, ui: UIModule, ai: AIModule,
+    init: function() { this.timer.init(); this.calendar.init(); this.settings.init(); this.ai.init(); this.ui.renderHome(); }
+};
+document.addEventListener('DOMContentLoaded', () => app.init());
+</script>
+</body>
+</html>
+```
