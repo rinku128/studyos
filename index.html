@@ -680,7 +680,36 @@ const DriveModule = {
         document.getElementById('btn-drive-restore').onclick = () => this.restore();
 
         this._isSilentRequest = true;
-        this.tokenClient.requestAccessToken({prompt: 'none'});
+        
+        const attemptSilentAuth = () => {
+            try {
+                // Timeout fallback if pop-up is silently blocked by the browser
+                setTimeout(() => {
+                    if (this._isSilentRequest) {
+                        console.log("Silent auth timed out or was blocked.");
+                        this._isSilentRequest = false;
+                        this.updateUI();
+                    }
+                }, 3000);
+                
+                this.tokenClient.requestAccessToken({prompt: 'none'});
+            } catch (e) {
+                console.log("Silent auth initialization failed:", e);
+                this._isSilentRequest = false;
+                this.updateUI();
+            }
+        };
+
+        // Guard: Only fire if document has focus to drastically reduce pop-up blocking
+        if (document.hasFocus && document.hasFocus()) {
+            attemptSilentAuth();
+        } else {
+            const onFocus = () => {
+                window.removeEventListener('focus', onFocus);
+                attemptSilentAuth();
+            };
+            window.addEventListener('focus', onFocus);
+        }
     },
     signOut: function() { if (this.accessToken) { google.accounts.oauth2.revoke(this.accessToken, () => { this.accessToken = null; this.userInfo = null; this.updateUI(); }); } else { this.updateUI(); } },
     fetchUserInfo: async function() { try { const res = await fetch('https://www.googleapis.com/drive/v3/about?fields=user', { headers: { 'Authorization': `Bearer ${this.accessToken}` } }); if (!res.ok) throw new Error('Failed to fetch user info'); const data = await res.json(); this.userInfo = data.user; } catch (err) { console.error(err); this.userInfo = { displayName: 'Google User', emailAddress: 'Signed in successfully' }; } },
