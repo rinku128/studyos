@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+```ht<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -12,7 +12,7 @@
     const manifest = {
         name: "StudyOS", short_name: "StudyOS", start_url: ".", display: "standalone",
         background_color: "#f8fafc", theme_color: "#2563eb",
-        icons: [{src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%232563eb' rx='20'/%3E%3Ctext x='50' y='65' font-size='50' text-anchor='middle' fill='white' font-family='sans-serif'%3ES%3C/text%3E%3C/svg%3E", sizes: "192x192", type: "image/svg+xml"}]
+        icons: [{src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f8fafc' rx='22'/%3E%3Cpath fill='%232563eb' d='M50 22L20 38v10c0 12 15 20 30 20s30-8 30-20V38L50 22zm0 6l22.5 12L50 52 27.5 40 50 28z'/%3E%3Cpath fill='%232563eb' d='M80 42v18h-4V42h4zM76 60c-2 0-4 2-4 4s2 4 4 4 4-2 4-4-2-4-4-4z'/%3E%3C/svg%3E", sizes: "192x192", type: "image/svg+xml"}]
     };
     const blob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
     document.write('<link rel="manifest" href="' + URL.createObjectURL(blob) + '">');
