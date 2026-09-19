@@ -647,12 +647,40 @@ const SettingsModule = {
 const DriveModule = {
     tokenClient: null, accessToken: null, userInfo: null, CLIENT_ID: '612969016882-vbg9vu79f7pp8151r7sd386tpn9qo8t9.apps.googleusercontent.com', SCOPES: 'https://www.googleapis.com/auth/drive.appdata',
     init: function() {
-        if (typeof google === 'undefined' || !google.accounts) { console.error("Google Identity Services not loaded."); return; }
-        this.tokenClient = google.accounts.oauth2.initTokenClient({ client_id: this.CLIENT_ID, scope: this.SCOPES, callback: async (response) => { if (response.error) { console.error('Auth error:', response.error); modal.show({title: "Sign-In Failed", desc: "Could not complete Google Sign-In. Please try again.", type: "alert"}); return; } this.accessToken = response.access_token; await this.fetchUserInfo(); this.updateUI(); } });
-        document.getElementById('btn-drive-signin').onclick = () => { if (this.tokenClient) this.tokenClient.requestAccessToken({prompt: 'consent'}); };
+        if (typeof google === 'undefined' || !google.accounts) {
+            console.error("Google Identity Services not loaded.");
+            return;
+        }
+        
+        this.tokenClient = google.accounts.oauth2.initTokenClient({
+            client_id: this.CLIENT_ID,
+            scope: this.SCOPES,
+            callback: async (response) => {
+                if (response.error) {
+                    if (!this._isSilentRequest) {
+                        console.error('Auth error:', response.error);
+                        modal.show({title: "Sign-In Failed", desc: "Could not complete Google Sign-In. Please try again.", type: "alert"});
+                    }
+                    this._isSilentRequest = false;
+                    return;
+                }
+                this._isSilentRequest = false;
+                this.accessToken = response.access_token;
+                await this.fetchUserInfo();
+                this.updateUI();
+            }
+        });
+
+        document.getElementById('btn-drive-signin').onclick = () => {
+            this._isSilentRequest = false;
+            if (this.tokenClient) this.tokenClient.requestAccessToken({prompt: 'consent'});
+        };
         document.getElementById('btn-drive-signout').onclick = () => this.signOut();
         document.getElementById('btn-drive-backup').onclick = () => this.backup();
         document.getElementById('btn-drive-restore').onclick = () => this.restore();
+
+        this._isSilentRequest = true;
+        this.tokenClient.requestAccessToken({prompt: 'none'});
     },
     signOut: function() { if (this.accessToken) { google.accounts.oauth2.revoke(this.accessToken, () => { this.accessToken = null; this.userInfo = null; this.updateUI(); }); } else { this.updateUI(); } },
     fetchUserInfo: async function() { try { const res = await fetch('https://www.googleapis.com/drive/v3/about?fields=user', { headers: { 'Authorization': `Bearer ${this.accessToken}` } }); if (!res.ok) throw new Error('Failed to fetch user info'); const data = await res.json(); this.userInfo = data.user; } catch (err) { console.error(err); this.userInfo = { displayName: 'Google User', emailAddress: 'Signed in successfully' }; } },
@@ -690,13 +718,30 @@ const app = {
         const data = dataLayer.get();
         let updated = false;
         
-        const syllabus = {
-            'Physics': ["Units & Dimensions", "Vectors", "Kinematics 1-D", "Kinematics 2-D", "NLM & Friction", "Circular Motion", "Work Power & Energy", "Rotation", "Center of Mass", "Gravitation", "Elasticity & Thermal", "Calorimetry & Heat", "Thermodynamics", "Fluid Mechanics", "SHM", "String Wave", "Sound Wave", "Wave Optics", "Ray Optics", "Electrostatics", "Capacitor", "Current Electricity", "Magnetism", "EMI", "AC", "EM Waves", "Modern Physics 1", "Modern Physics 2", "Semiconductor", "Error Analysis"],
-            'Chemistry': ["Mole Concept", "Atomic Structure", "Concentration Terms", "Redox", "Ideal Gas", "Real Gas", "Quantum Numbers", "Periodic Table", "Chemical Bonding", "Chemical Equilibrium", "Ionic Equilibrium", "Solid State", "Liquid Solution", "Chemical Kinetics", "Thermodynamics 1", "Thermodynamics 2", "Thermochemistry", "Electrochemistry", "Surface Chemistry", "Coordination Compounds", "Metallurgy", "Salt Analysis", "Heating Effect", "s-Block", "d-Block", "p-Block", "f-Block", "Hydrogen", "Nomenclature", "GOC (General Organic Chemistry)", "Acid Base Strength", "Isomerism", "Hydrocarbon", "Haloalkane", "Alcohol & Ether", "Aldehyde Ketone", "Amines", "Biomolecules", "Polymer", "Chemistry in Everyday Life", "POC", "Separation Technique", "Environmental Chemistry"],
-            'Mathematics': ["Sets", "Relation", "FOM", "Quadratic Equation", "Logarithm", "Sequence & Series", "Binomial Theorem", "PnC", "Probability", "Statistics", "Complex Number", "Matrices", "Determinant", "Compound Angles", "Trigonometric Equation", "Solution of Triangles", "ITF", "Function", "Limit & Continuity", "Differentiability", "MOD", "AOD", "Indefinite Integration", "Definite Integration", "AUC", "Differential Equation", "Straight Line", "Circle", "Parabola", "Ellipse", "Hyperbola", "Vector", "3-D"]
+        const newSyllabus = {
+            'Chemistry': {
+                'Physical Chemistry': ["Mole Concept", "Atomic Structure", "Concentration Terms", "Redox", "Ideal Gas", "Real Gas", "Quantum Numbers", "Solid State", "Liquid Solution", "Chemical Kinetics", "Thermodynamics 1", "Thermodynamics 2", "Thermochemistry", "Ionic Equilibrium", "Electrochemistry", "Surface Chemistry", "Chemical Equilibrium"],
+                'Inorganic Chemistry': ["Periodic Table", "Chemical Bonding", "Coordination Compounds", "Metallurgy", "Salt Analysis", "Heating Effect", "s-Block", "d-Block", "p-Block", "f-Block", "Hydrogen"],
+                'Organic Chemistry': ["Nomenclature", "GOC", "Acid Base Strength", "Isomerism", "Hydrocarbon", "Haloalkane", "Alcohol & Ether", "Aldehyde Ketone", "Amines", "Biomolecules", "Polymer", "Chemistry in Everyday Life", "POC", "Separation Technique", "Environmental Chemistry"]
+            },
+            'Physics': {
+                'Mechanics': ["Units & Dimensions", "Vectors", "Kinematics 1-D", "Kinematics 2-D", "NLM & Friction", "Circular Motion", "Work Power & Energy", "Rotation", "Center of Mass", "Gravitation", "Elasticity & Thermal", "Fluid Mechanics", "SHM", "Error Analysis"],
+                'Heat & Thermodynamics': ["Calorimetry & Heat", "Thermodynamics"],
+                'Waves & Optics': ["String Wave", "Sound Wave", "Wave Optics", "Ray Optics"],
+                'Electrodynamics': ["Electrostatics", "Capacitor", "Current Electricity", "Magnetism", "EMI", "AC", "EM Waves"],
+                'Modern Physics': ["Modern Physics 1", "Modern Physics 2", "Semiconductor"]
+            },
+            'Mathematics': {
+                'Algebra': ["Sets", "Relation", "FOM", "Quadratic Equation", "Logarithm", "Sequence & Series", "Binomial Theorem", "PnC", "Complex Number", "Matrices", "Determinant"],
+                'Calculus': ["Function", "Limit & Continuity", "Differentiability", "MOD", "AOD", "Indefinite Integration", "Definite Integration", "AUC", "Differential Equation"],
+                'Coordinate Geometry': ["Straight Line", "Circle", "Parabola", "Ellipse", "Hyperbola"],
+                'Trigonometry': ["Compound Angles", "Trigonometric Equation", "Solution of Triangles", "ITF"],
+                'Vectors & 3D': ["Vector", "3-D"],
+                'Statistics & Probability': ["Probability", "Statistics"]
+            }
         };
 
-        for (const [subjName, chapters] of Object.entries(syllabus)) {
+        for (const [subjName, chapters] of Object.entries(newSyllabus)) {
             let subject = data.subjects.find(s => s.name.toLowerCase() === subjName.toLowerCase());
             if (!subject) {
                 subject = { id: 'sub_' + utils.generateId(), name: subjName, color: utils.getSubjectColor(data.subjects.length), chapters: [] };
@@ -705,22 +750,33 @@ const app = {
             }
             if (!subject.chapters) subject.chapters = [];
 
-            for (const chapName of chapters) {
-                const exists = subject.chapters.some(c => c.name.toLowerCase() === chapName.toLowerCase());
-                if (!exists) {
-                    subject.chapters.push({
-                        id: 'c_' + utils.generateId(),
-                        name: chapName,
-                        topics: [] 
-                    });
+            for (const [chapName, topics] of Object.entries(chapters)) {
+                let chapter = subject.chapters.find(c => c.name.toLowerCase() === chapName.toLowerCase());
+                if (!chapter) {
+                    chapter = { id: 'c_' + utils.generateId(), name: chapName, topics: [] };
+                    subject.chapters.push(chapter);
                     updated = true;
+                }
+                if (!chapter.topics) chapter.topics = [];
+
+                for (const topName of topics) {
+                    let topic = chapter.topics.find(t => t.name.toLowerCase() === topName.toLowerCase());
+                    if (!topic) {
+                        chapter.topics.push({
+                            id: 't_' + utils.generateId(),
+                            name: topName,
+                            needsRevision: false,
+                            lastRevisedDate: null
+                        });
+                        updated = true;
+                    }
                 }
             }
         }
 
         if (updated) {
             dataLayer.save(data);
-            console.log("StudyOS: Added missing JEE chapters to existing data.");
+            console.log("StudyOS: Grouped JEE syllabus updated successfully.");
         }
     },
     init: function() { 
