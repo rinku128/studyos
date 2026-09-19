@@ -621,8 +621,7 @@ const UIModule = {
 };
 
 const AIModule = {
-    init: function() {},
-    scrollToBottom: function() {}
+    init: function() {}, scrollToBottom: function() {}
 };
 
 const SettingsModule = {
@@ -646,189 +645,88 @@ const SettingsModule = {
 };
 
 const DriveModule = {
-    tokenClient: null,
-    accessToken: null,
-    userInfo: null,
-    CLIENT_ID: '612969016882-vbg9vu79f7pp8151r7sd386tpn9qo8t9.apps.googleusercontent.com',
-    SCOPES: 'https://www.googleapis.com/auth/drive.appdata',
-
+    tokenClient: null, accessToken: null, userInfo: null, CLIENT_ID: '612969016882-vbg9vu79f7pp8151r7sd386tpn9qo8t9.apps.googleusercontent.com', SCOPES: 'https://www.googleapis.com/auth/drive.appdata',
     init: function() {
-        if (typeof google === 'undefined' || !google.accounts) {
-            console.error("Google Identity Services not loaded.");
-            return;
-        }
-        
-        this.tokenClient = google.accounts.oauth2.initTokenClient({
-            client_id: this.CLIENT_ID,
-            scope: this.SCOPES,
-            callback: async (response) => {
-                if (response.error) {
-                    console.error('Auth error:', response.error);
-                    modal.show({title: "Sign-In Failed", desc: "Could not complete Google Sign-In. Please try again.", type: "alert"});
-                    return;
-                }
-                this.accessToken = response.access_token;
-                await this.fetchUserInfo();
-                this.updateUI();
-            }
-        });
-
-        document.getElementById('btn-drive-signin').onclick = () => {
-            if (this.tokenClient) this.tokenClient.requestAccessToken({prompt: 'consent'});
-        };
+        if (typeof google === 'undefined' || !google.accounts) { console.error("Google Identity Services not loaded."); return; }
+        this.tokenClient = google.accounts.oauth2.initTokenClient({ client_id: this.CLIENT_ID, scope: this.SCOPES, callback: async (response) => { if (response.error) { console.error('Auth error:', response.error); modal.show({title: "Sign-In Failed", desc: "Could not complete Google Sign-In. Please try again.", type: "alert"}); return; } this.accessToken = response.access_token; await this.fetchUserInfo(); this.updateUI(); } });
+        document.getElementById('btn-drive-signin').onclick = () => { if (this.tokenClient) this.tokenClient.requestAccessToken({prompt: 'consent'}); };
         document.getElementById('btn-drive-signout').onclick = () => this.signOut();
         document.getElementById('btn-drive-backup').onclick = () => this.backup();
         document.getElementById('btn-drive-restore').onclick = () => this.restore();
     },
-
-    signOut: function() {
-        if (this.accessToken) {
-            google.accounts.oauth2.revoke(this.accessToken, () => {
-                this.accessToken = null;
-                this.userInfo = null;
-                this.updateUI();
-            });
-        } else {
-            this.updateUI();
-        }
-    },
-
-    fetchUserInfo: async function() {
-        try {
-            const res = await fetch('https://www.googleapis.com/drive/v3/about?fields=user', {
-                headers: { 'Authorization': `Bearer ${this.accessToken}` }
-            });
-            if (!res.ok) throw new Error('Failed to fetch user info');
-            const data = await res.json();
-            this.userInfo = data.user;
-        } catch (err) {
-            console.error(err);
-            this.userInfo = { displayName: 'Google User', emailAddress: 'Signed in successfully' };
-        }
-    },
-
+    signOut: function() { if (this.accessToken) { google.accounts.oauth2.revoke(this.accessToken, () => { this.accessToken = null; this.userInfo = null; this.updateUI(); }); } else { this.updateUI(); } },
+    fetchUserInfo: async function() { try { const res = await fetch('https://www.googleapis.com/drive/v3/about?fields=user', { headers: { 'Authorization': `Bearer ${this.accessToken}` } }); if (!res.ok) throw new Error('Failed to fetch user info'); const data = await res.json(); this.userInfo = data.user; } catch (err) { console.error(err); this.userInfo = { displayName: 'Google User', emailAddress: 'Signed in successfully' }; } },
     updateUI: function() {
-        const authControls = document.getElementById('drive-auth-controls');
-        const syncControls = document.getElementById('drive-sync-controls');
-        const infoText = document.getElementById('drive-user-info');
-
-        if (this.accessToken) {
-            authControls.classList.add('hidden');
-            syncControls.classList.remove('hidden');
-            syncControls.classList.add('flex');
-            if (this.userInfo) {
-                infoText.innerHTML = `Signed in as <strong>${this.userInfo.displayName}</strong><br><span class="opacity-75">${this.userInfo.emailAddress}</span>`;
-            } else {
-                infoText.textContent = "Signed in and ready to sync.";
-            }
-        } else {
-            authControls.classList.remove('hidden');
-            syncControls.classList.add('hidden');
-            syncControls.classList.remove('flex');
-            infoText.textContent = "Sign in to safely back up your data to your private Google Drive app folder.";
-        }
+        const authControls = document.getElementById('drive-auth-controls'), syncControls = document.getElementById('drive-sync-controls'), infoText = document.getElementById('drive-user-info');
+        if (this.accessToken) { authControls.classList.add('hidden'); syncControls.classList.remove('hidden'); syncControls.classList.add('flex'); if (this.userInfo) { infoText.innerHTML = `Signed in as <strong>${this.userInfo.displayName}</strong><br><span class="opacity-75">${this.userInfo.emailAddress}</span>`; } else { infoText.textContent = "Signed in and ready to sync."; } } else { authControls.classList.remove('hidden'); syncControls.classList.add('hidden'); syncControls.classList.remove('flex'); infoText.textContent = "Sign in to safely back up your data to your private Google Drive app folder."; }
     },
-
     getBackupFileId: async function() {
-        const q = encodeURIComponent("name='studyos_backup.json' and 'appDataFolder' in parents");
-        const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&spaces=appDataFolder&fields=files(id)`, {
-            headers: { 'Authorization': `Bearer ${this.accessToken}` }
-        });
-        if (!res.ok) {
-            if (res.status === 401) { this.signOut(); throw new Error("Session expired. Please sign in again."); }
-            throw new Error("Failed to search for backup file.");
-        }
-        const data = await res.json();
-        return data.files && data.files.length > 0 ? data.files[0].id : null;
+        const q = encodeURIComponent("name='studyos_backup.json' and 'appDataFolder' in parents"); const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&spaces=appDataFolder&fields=files(id)`, { headers: { 'Authorization': `Bearer ${this.accessToken}` } });
+        if (!res.ok) { if (res.status === 401) { this.signOut(); throw new Error("Session expired. Please sign in again."); } throw new Error("Failed to search for backup file."); } const data = await res.json(); return data.files && data.files.length > 0 ? data.files[0].id : null;
     },
-
     backup: async function() {
-        if (!this.accessToken) return;
-        const btn = document.getElementById('btn-drive-backup');
-        const originalText = btn.innerHTML;
-        btn.innerHTML = '<i class="ph-bold ph-spinner animate-spin text-lg"></i> Backing up...';
-        
+        if (!this.accessToken) return; const btn = document.getElementById('btn-drive-backup'); const originalText = btn.innerHTML; btn.innerHTML = '<i class="ph-bold ph-spinner animate-spin text-lg"></i> Backing up...';
         try {
-            const fileId = await this.getBackupFileId();
-            const appData = JSON.stringify(dataLayer.get());
-
-            if (fileId) {
-                const res = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
-                    method: 'PATCH',
-                    headers: { 'Authorization': `Bearer ${this.accessToken}`, 'Content-Type': 'application/json' },
-                    body: appData
-                });
-                if (!res.ok) throw new Error("Failed to update backup on Drive.");
-            } else {
-                const metadata = { name: 'studyos_backup.json', parents: ['appDataFolder'] };
-                const boundary = '-------314159265358979323846';
-                const body = "\r\n--" + boundary + "\r\n" +
-                    "Content-Type: application/json; charset=UTF-8\r\n\r\n" +
-                    JSON.stringify(metadata) +
-                    "\r\n--" + boundary + "\r\n" +
-                    "Content-Type: application/json\r\n\r\n" +
-                    appData +
-                    "\r\n--" + boundary + "--";
-
-                const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${this.accessToken}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
-                    body: body
-                });
-                if (!res.ok) throw new Error("Failed to create backup on Drive.");
-            }
+            const fileId = await this.getBackupFileId(), appData = JSON.stringify(dataLayer.get());
+            if (fileId) { const res = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, { method: 'PATCH', headers: { 'Authorization': `Bearer ${this.accessToken}`, 'Content-Type': 'application/json' }, body: appData }); if (!res.ok) throw new Error("Failed to update backup on Drive."); } else { const metadata = { name: 'studyos_backup.json', parents: ['appDataFolder'] }, boundary = '-------314159265358979323846', body = "\r\n--" + boundary + "\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n" + JSON.stringify(metadata) + "\r\n--" + boundary + "\r\nContent-Type: application/json\r\n\r\n" + appData + "\r\n--" + boundary + "--"; const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', { method: 'POST', headers: { 'Authorization': `Bearer ${this.accessToken}`, 'Content-Type': `multipart/related; boundary=${boundary}` }, body: body }); if (!res.ok) throw new Error("Failed to create backup on Drive."); }
             modal.show({title: "Backup Complete", desc: "Your data has been safely backed up to Google Drive.", type: "alert"});
-        } catch (err) {
-            console.error("Backup error:", err);
-            modal.show({title: "Backup Failed", desc: err.message || "An error occurred during backup.", type: "alert"});
-        } finally {
-            btn.innerHTML = originalText;
-        }
+        } catch (err) { console.error("Backup error:", err); modal.show({title: "Backup Failed", desc: err.message || "An error occurred during backup.", type: "alert"}); } finally { btn.innerHTML = originalText; }
     },
-
     restore: async function() {
-        if (!this.accessToken) return;
-        const btn = document.getElementById('btn-drive-restore');
-        const originalText = btn.innerHTML;
-        btn.innerHTML = '<i class="ph-bold ph-spinner animate-spin text-lg"></i> Checking...';
-
+        if (!this.accessToken) return; const btn = document.getElementById('btn-drive-restore'); const originalText = btn.innerHTML; btn.innerHTML = '<i class="ph-bold ph-spinner animate-spin text-lg"></i> Checking...';
         try {
-            const fileId = await this.getBackupFileId();
-            if (!fileId) throw new Error("No existing backup found in your Google Drive.");
-
-            btn.innerHTML = '<i class="ph-bold ph-spinner animate-spin text-lg"></i> Downloading...';
-            const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-                headers: { 'Authorization': `Bearer ${this.accessToken}` }
-            });
-            
-            if (!res.ok) throw new Error("Failed to download backup data.");
-            
-            const importedData = await res.json();
-            if (!importedData || !Array.isArray(importedData.subjects) || !Array.isArray(importedData.sessions)) {
-                throw new Error("Invalid backup format received from Drive.");
-            }
-
-            btn.innerHTML = originalText; 
-            
-            if (await modal.show({ title: "Overwrite Data?", desc: "Restoring from Drive will replace all current data locally. Continue?", type: "confirm" })) {
-                dataLayer.save(importedData);
-                await modal.show({title: "Restore Complete", desc: "App will now reload with restored data.", type: "alert"});
-                window.location.reload();
-            }
-        } catch (err) {
-            console.error("Restore error:", err);
+            const fileId = await this.getBackupFileId(); if (!fileId) throw new Error("No existing backup found in your Google Drive."); btn.innerHTML = '<i class="ph-bold ph-spinner animate-spin text-lg"></i> Downloading...';
+            const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, { headers: { 'Authorization': `Bearer ${this.accessToken}` } }); if (!res.ok) throw new Error("Failed to download backup data.");
+            const importedData = await res.json(); if (!importedData || !Array.isArray(importedData.subjects) || !Array.isArray(importedData.sessions)) throw new Error("Invalid backup format received from Drive.");
             btn.innerHTML = originalText;
-            modal.show({title: "Restore Failed", desc: err.message || "An error occurred during restore.", type: "alert"});
-        }
+            if (await modal.show({ title: "Overwrite Data?", desc: "Restoring from Drive will replace all current data locally. Continue?", type: "confirm" })) { dataLayer.save(importedData); await modal.show({title: "Restore Complete", desc: "App will now reload with restored data.", type: "alert"}); window.location.reload(); }
+        } catch (err) { console.error("Restore error:", err); btn.innerHTML = originalText; modal.show({title: "Restore Failed", desc: err.message || "An error occurred during restore.", type: "alert"}); }
     }
 };
 
 const app = {
     timer: TimerModule, subjects: SubjectsModule, history: HistoryModule, calendar: CalendarModule, settings: SettingsModule, ui: UIModule, ai: AIModule, drive: DriveModule,
+    seedJEESyllabus: function() {
+        const data = dataLayer.get();
+        let updated = false;
+        
+        const syllabus = {
+            'Physics': ["Units & Dimensions", "Vectors", "Kinematics 1-D", "Kinematics 2-D", "NLM & Friction", "Circular Motion", "Work Power & Energy", "Rotation", "Center of Mass", "Gravitation", "Elasticity & Thermal", "Calorimetry & Heat", "Thermodynamics", "Fluid Mechanics", "SHM", "String Wave", "Sound Wave", "Wave Optics", "Ray Optics", "Electrostatics", "Capacitor", "Current Electricity", "Magnetism", "EMI", "AC", "EM Waves", "Modern Physics 1", "Modern Physics 2", "Semiconductor", "Error Analysis"],
+            'Chemistry': ["Mole Concept", "Atomic Structure", "Concentration Terms", "Redox", "Ideal Gas", "Real Gas", "Quantum Numbers", "Periodic Table", "Chemical Bonding", "Chemical Equilibrium", "Ionic Equilibrium", "Solid State", "Liquid Solution", "Chemical Kinetics", "Thermodynamics 1", "Thermodynamics 2", "Thermochemistry", "Electrochemistry", "Surface Chemistry", "Coordination Compounds", "Metallurgy", "Salt Analysis", "Heating Effect", "s-Block", "d-Block", "p-Block", "f-Block", "Hydrogen", "Nomenclature", "GOC (General Organic Chemistry)", "Acid Base Strength", "Isomerism", "Hydrocarbon", "Haloalkane", "Alcohol & Ether", "Aldehyde Ketone", "Amines", "Biomolecules", "Polymer", "Chemistry in Everyday Life", "POC", "Separation Technique", "Environmental Chemistry"],
+            'Mathematics': ["Sets", "Relation", "FOM", "Quadratic Equation", "Logarithm", "Sequence & Series", "Binomial Theorem", "PnC", "Probability", "Statistics", "Complex Number", "Matrices", "Determinant", "Compound Angles", "Trigonometric Equation", "Solution of Triangles", "ITF", "Function", "Limit & Continuity", "Differentiability", "MOD", "AOD", "Indefinite Integration", "Definite Integration", "AUC", "Differential Equation", "Straight Line", "Circle", "Parabola", "Ellipse", "Hyperbola", "Vector", "3-D"]
+        };
+
+        for (const [subjName, chapters] of Object.entries(syllabus)) {
+            let subject = data.subjects.find(s => s.name.toLowerCase() === subjName.toLowerCase());
+            if (!subject) {
+                subject = { id: 'sub_' + utils.generateId(), name: subjName, color: utils.getSubjectColor(data.subjects.length), chapters: [] };
+                data.subjects.push(subject);
+                updated = true;
+            }
+            if (!subject.chapters) subject.chapters = [];
+
+            for (const chapName of chapters) {
+                const exists = subject.chapters.some(c => c.name.toLowerCase() === chapName.toLowerCase());
+                if (!exists) {
+                    subject.chapters.push({
+                        id: 'c_' + utils.generateId(),
+                        name: chapName,
+                        topics: [] 
+                    });
+                    updated = true;
+                }
+            }
+        }
+
+        if (updated) {
+            dataLayer.save(data);
+            console.log("StudyOS: Added missing JEE chapters to existing data.");
+        }
+    },
     init: function() { 
+        this.seedJEESyllabus();
         this.timer.init(); this.calendar.init(); this.settings.init(); this.ai.init(); this.ui.renderHome(); 
         
-        // Wait safely for Google Identity Services to initialize before loading Drive controls
         const checkGSI = setInterval(() => {
             if (typeof google !== 'undefined' && google.accounts) {
                 clearInterval(checkGSI);
