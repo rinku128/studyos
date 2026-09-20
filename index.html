@@ -625,32 +625,13 @@ const AIModule = {
 };
 
 const SettingsModule = {
-    el: document.getElementById('settings-modal'), content: document.getElementById('settings-modal-content'), _silentAuthAttempted: false,
+    el: document.getElementById('settings-modal'), content: document.getElementById('settings-modal-content'),
     init: function() {
         document.getElementById('settings-btn').onclick = () => this.open(); document.getElementById('settings-close').onclick = () => this.close(); document.getElementById('btn-export-backup').onclick = () => this.export();
         const fInp = document.getElementById('file-import-input'); document.getElementById('btn-import-backup').onclick = () => fInp.click(); fInp.addEventListener('change', (e) => this.handleImport(e));
     },
     open: function() { 
         this.el.classList.remove('hidden'); setTimeout(() => { this.el.classList.remove('opacity-0'); this.content.classList.remove('scale-95'); }, 10); 
-        
-        if (!app.drive.accessToken && !this._silentAuthAttempted && app.drive.tokenClient) {
-            this._silentAuthAttempted = true;
-            app.drive._isSilentRequest = true;
-            try {
-                setTimeout(() => {
-                    if (app.drive._isSilentRequest) {
-                        console.log("Silent auth timed out or was blocked.");
-                        app.drive._isSilentRequest = false;
-                        app.drive.updateUI();
-                    }
-                }, 3000);
-                app.drive.tokenClient.requestAccessToken({prompt: 'none'});
-            } catch (e) {
-                console.log("Silent auth initialization failed:", e);
-                app.drive._isSilentRequest = false;
-                app.drive.updateUI();
-            }
-        }
     },
     close: function() { this.el.classList.add('opacity-0'); this.content.classList.add('scale-95'); setTimeout(() => { this.el.classList.add('hidden'); }, 200); },
     export: function() {
