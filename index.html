@@ -452,7 +452,7 @@
                 <h4 class="text-sm font-bold text-purple-800 dark:text-purple-300 mb-1">Discord Daily Summary</h4>
                 <p class="text-xs text-purple-600 dark:text-purple-400/80 mb-3">Automatically post a summary of your previous day's study stats to a Discord channel.</p>
                 <input type="url" id="discord-webhook-url" placeholder="Enter Discord Webhook URL" class="w-full bg-white dark:bg-slate-800 border border-purple-200 dark:border-purple-700/50 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-100 outline-none focus:border-purple-500 mb-2 transition-colors duration-300">
-                <button id="btn-save-discord" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 rounded-lg transition text-sm">Save Webhook</button>
+                <button id="btn-save-discord" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 rounded-lg transition text-sm flex items-center justify-center gap-2">Save Webhook</button>
             </div>
             <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800/50 transition-colors duration-300">
                 <h4 class="text-sm font-bold text-blue-800 dark:text-blue-300 mb-1">Data Management</h4>
@@ -1115,16 +1115,33 @@ const SettingsModule = {
         document.getElementById('btn-edit-goal').onclick = () => this.editGoal();
         
         const webhookInp = document.getElementById('discord-webhook-url');
-        webhookInp.value = localStorage.getItem('studyos_discord_webhook') || '';
-        document.getElementById('btn-save-discord').onclick = () => {
+        const btnDiscord = document.getElementById('btn-save-discord');
+        
+        btnDiscord.onclick = () => {
             const val = webhookInp.value.trim();
-            if (val) {
-                localStorage.setItem('studyos_discord_webhook', val);
-                modal.show({title: "Webhook Saved", desc: "Discord daily summaries enabled.", type: "alert"});
-            } else {
-                localStorage.removeItem('studyos_discord_webhook');
-                modal.show({title: "Webhook Cleared", desc: "Discord daily summaries disabled.", type: "alert"});
+            if (!val) {
+                const orig = btnDiscord.innerHTML;
+                btnDiscord.innerHTML = 'Enter a webhook URL first!';
+                btnDiscord.classList.add('bg-red-500', 'hover:bg-red-600');
+                btnDiscord.classList.remove('bg-purple-600', 'hover:bg-purple-700');
+                setTimeout(() => {
+                    btnDiscord.innerHTML = orig;
+                    btnDiscord.classList.remove('bg-red-500', 'hover:bg-red-600');
+                    btnDiscord.classList.add('bg-purple-600', 'hover:bg-purple-700');
+                }, 1500);
+                return;
             }
+            
+            localStorage.setItem('studyos_discord_webhook', val);
+            const orig = btnDiscord.innerHTML;
+            btnDiscord.innerHTML = '<i class="ph-bold ph-check"></i> Saved!';
+            btnDiscord.classList.add('bg-emerald-500', 'hover:bg-emerald-600');
+            btnDiscord.classList.remove('bg-purple-600', 'hover:bg-purple-700');
+            setTimeout(() => {
+                btnDiscord.innerHTML = orig;
+                btnDiscord.classList.remove('bg-emerald-500', 'hover:bg-emerald-600');
+                btnDiscord.classList.add('bg-purple-600', 'hover:bg-purple-700');
+            }, 1500);
         };
 
         const btnTheme = document.getElementById('btn-toggle-theme');
@@ -1141,7 +1158,11 @@ const SettingsModule = {
         const knob = document.getElementById('theme-toggle-knob');
         if(isDark) { knob.classList.add('translate-x-6'); } else { knob.classList.remove('translate-x-6'); }
     },
-    open: function() { this.el.classList.remove('hidden'); setTimeout(() => { this.el.classList.remove('opacity-0'); this.content.classList.remove('scale-95'); }, 10); },
+    open: function() { 
+        document.getElementById('discord-webhook-url').value = localStorage.getItem('studyos_discord_webhook') || '';
+        this.el.classList.remove('hidden'); 
+        setTimeout(() => { this.el.classList.remove('opacity-0'); this.content.classList.remove('scale-95'); }, 10); 
+    },
     close: function() { this.el.classList.add('opacity-0'); this.content.classList.add('scale-95'); setTimeout(() => { this.el.classList.add('hidden'); }, 200); },
     editGoal: async function() {
         this.close(); const data = dataLayer.get(), currentGoal = data.settings.dailyGoalMinutes || 240, res = await modal.show({ title: "Daily Goal (Minutes)", desc: "Enter your target study time in minutes (e.g., 240 for 4 hours).", type: "prompt", defaultValue: currentGoal.toString(), required: true });
