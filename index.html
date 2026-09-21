@@ -447,6 +447,13 @@
                     <i class="ph-bold ph-target"></i> Edit Daily Goal
                 </button>
             </div>
+            <!-- Discord Integration Section -->
+            <div class="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-xl border border-purple-100 dark:border-purple-800/50 transition-colors duration-300">
+                <h4 class="text-sm font-bold text-purple-800 dark:text-purple-300 mb-1">Discord Daily Summary</h4>
+                <p class="text-xs text-purple-600 dark:text-purple-400/80 mb-3">Automatically post a summary of your previous day's study stats to a Discord channel.</p>
+                <input type="url" id="discord-webhook-url" placeholder="Enter Discord Webhook URL" class="w-full bg-white dark:bg-slate-800 border border-purple-200 dark:border-purple-700/50 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-100 outline-none focus:border-purple-500 mb-2 transition-colors duration-300">
+                <button id="btn-save-discord" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 rounded-lg transition text-sm">Save Webhook</button>
+            </div>
             <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800/50 transition-colors duration-300">
                 <h4 class="text-sm font-bold text-blue-800 dark:text-blue-300 mb-1">Data Management</h4>
                 <p class="text-xs text-blue-600 dark:text-blue-400/80 mb-3">Backup your data to a file, or restore from a previous backup.</p>
@@ -629,7 +636,9 @@ const nav = {
 };
 
 const TimerModule = {
-    isRunning: false, isPaused: false, mode: 'focus', timerType: 'countdown', startTimestamp: null, plannedDurationMs: 0, accumulatedPauseMs: 0, pausedAt: null, durationSeconds: 1500, remainingSeconds: 1500, elapsedSeconds: 0, timerInterval: null, currentSession: {}, manualMode: 'focus', elSetup: document.getElementById('timer-setup-container'), elActive: document.getElementById('timer-active'), elDisplay: document.getElementById('timer-display'), elProgress: document.getElementById('timer-progress-circle'), elBtnPause: document.getElementById('timer-pause-btn'),
+    isRunning: false, isPaused: false, mode: 'focus', timerType: 'countdown', startTimestamp: null, plannedDurationMs: 0, accumulatedPauseMs: 0, pausedAt: null, durationSeconds: 1500, remainingSeconds: 1500, elapsedSeconds: 0, timerInterval: null, currentSession: {}, manualMode: 'focus', wakeLock: null,
+    elSetup: document.getElementById('timer-setup-container'), elActive: document.getElementById('timer-active'), elDisplay: document.getElementById('timer-display'), elProgress: document.getElementById('timer-progress-circle'), elBtnPause: document.getElementById('timer-pause-btn'),
+    
     init: function() {
         const tabLive = document.getElementById('tab-live-timer'), tabManual = document.getElementById('tab-manual-log'), viewLive = document.getElementById('timer-setup'), viewManual = document.getElementById('manual-log-setup');
         tabLive.onclick = () => { tabLive.className = "flex-1 bg-white dark:bg-slate-800 shadow-sm text-blue-600 dark:text-blue-400 font-semibold py-2 rounded-lg text-sm transition"; tabManual.className = "flex-1 text-slate-500 dark:text-slate-400 font-medium py-2 rounded-lg text-sm hover:text-slate-700 dark:hover:text-slate-200 transition"; viewLive.classList.remove('hidden'); viewManual.classList.add('hidden'); };
@@ -663,8 +672,101 @@ const TimerModule = {
         
         document.getElementById('timer-start-btn').onclick = () => this.start(); this.elBtnPause.onclick = () => this.togglePause(); document.getElementById('timer-stop-btn').onclick = () => this.stop();
         document.getElementById('manual-save-btn').onclick = () => this.saveManualSession();
-        document.addEventListener("visibilitychange", () => { if (!document.hidden && this.isRunning && !this.isPaused) this.tick(); });
+        
+        document.addEventListener("visibilitychange", () => {
+            if (!document.hidden && this.isRunning) {
+                if (!this.isPaused) this.tick();
+                if ('wakeLock' in navigator && this.wakeLock === null && !this.isPaused) {
+                    navigator.wakeLock.request('screen').then(wl => this.wakeLock = wl).catch(e => console.log('Wake Lock error:', e));
+                }
+            } else if (document.hidden && this.isRunning) {
+                this.saveActiveState();
+            }
+        });
+
+        // Resume Active Timer State if exists on load
+        setTimeout(() => this.resumeActiveState(), 100);
     },
+    
+    saveActiveState: function() {
+        if (!this.isRunning) return;
+        localStorage.setItem('studyOS_activeTimer', JSON.stringify({
+            currentSession: this.currentSession, mode: this.mode, timerType: this.timerType,
+            plannedDurationMs: this.plannedDurationMs, startTimestamp: this.startTimestamp,
+            accumulatedPauseMs: this.accumulatedPauseMs, isPaused: this.isPaused,
+            pausedAt: this.pausedAt, durationSeconds: this.durationSeconds
+        }));
+    },
+    clearActiveState: function() {
+        localStorage.removeItem('studyOS_activeTimer');
+    },
+    resumeActiveState: function() {
+        const saved = localStorage.getItem('studyOS_activeTimer');
+        if (!saved) return;
+        try {
+            const state = JSON.parse(saved);
+            this.currentSession = state.currentSession;
+            this.mode = state.mode;
+            this.timerType = state.timerType;
+            this.plannedDurationMs = state.plannedDurationMs;
+            this.startTimestamp = state.startTimestamp;
+            this.accumulatedPauseMs = state.accumulatedPauseMs;
+            this.isPaused = state.isPaused;
+            this.pausedAt = state.pausedAt;
+            this.durationSeconds = state.durationSeconds;
+
+            const eMs = this.isPaused ? (this.pausedAt - this.startTimestamp - this.accumulatedPauseMs) : (Date.now() - this.startTimestamp - this.accumulatedPauseMs);
+
+            if (this.timerType === 'countdown' && !this.isPaused && eMs >= this.plannedDurationMs) {
+                // Timer finished while app was closed in background
+                if (this.mode === 'focus' || this.mode === 'revision') {
+                    this.saveSession(this.startTimestamp, this.startTimestamp + this.plannedDurationMs);
+                    modal.show({title: "Session Completed", desc: `Your ${this.currentSession.durationMins}m session finished while the app was closed. Data saved!`, type: "alert"});
+                } else {
+                    modal.show({title: "Break Over!", desc: "Your break finished while you were away.", type: "alert"});
+                }
+                this.clearActiveState();
+                return;
+            }
+
+            this.isRunning = true;
+
+            // Rebuild Active UI
+            const sid = this.currentSession.subjectId, cid = this.currentSession.chapterId, tid = this.currentSession.topicId;
+            const subjObj = dataLayer.get().subjects.find(s=>s.id===sid), chapObj = subjObj?.chapters?.find(c=>c.id===cid), topObj = chapObj?.topics?.find(t=>t.id===tid), isSt = (this.mode === 'focus' || this.mode === 'revision');
+            document.getElementById('active-subject-text').textContent = isSt ? subjObj?.name : "Break Time";
+            document.getElementById('active-chapter-text').textContent = isSt ? chapObj?.name : "";
+            document.getElementById('active-chapter-text').style.display = isSt ? 'block' : 'none';
+            document.getElementById('active-topic-text').textContent = isSt ? topObj?.name : "Relax and recharge";
+
+            const bdg = document.getElementById('active-mode-badge');
+            if (this.mode === 'focus') { bdg.textContent = 'Focus Mode'; bdg.className = 'mt-3 inline-block px-3 py-1 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-bold rounded-full uppercase tracking-wider'; this.elProgress.style.stroke = '#2563eb'; }
+            else if (this.mode === 'revision') { bdg.textContent = 'Revision Mode'; bdg.className = 'mt-3 inline-block px-3 py-1 bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-xs font-bold rounded-full uppercase tracking-wider'; this.elProgress.style.stroke = '#a855f7'; }
+            else { bdg.textContent = 'Break Mode'; bdg.className = 'mt-3 inline-block px-3 py-1 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-xs font-bold rounded-full uppercase tracking-wider'; this.elProgress.style.stroke = '#10b981'; }
+
+            this.elSetup.classList.add('hidden');
+            this.elActive.classList.remove('hidden');
+            this.elActive.classList.add('flex');
+            this.elBtnPause.innerHTML = this.isPaused ? '<i class="ph-fill ph-play text-xl"></i> Resume' : '<i class="ph-fill ph-pause text-xl"></i> Pause';
+
+            this.updateDisplay();
+            
+            if (!this.isPaused) {
+                this.timerInterval = setInterval(() => this.tick(), 1000);
+                if ('wakeLock' in navigator) {
+                    navigator.wakeLock.request('screen').then(wl => this.wakeLock = wl).catch(e => console.log(e));
+                }
+            }
+
+            // Immediately show timer if it was running
+            nav.switchTab('timer'); 
+
+        } catch(e) {
+            console.error("Failed to parse active timer:", e);
+            this.clearActiveState();
+        }
+    },
+
     populateSelectors: function(prefix = 'timer-') {
         const data = dataLayer.get(), sel = document.getElementById(prefix + 'subject-select'); sel.innerHTML = '';
         if(!data.subjects.length) { sel.innerHTML = '<option value="">No subjects found</option>'; return; }
@@ -680,19 +782,31 @@ const TimerModule = {
         const chap = dataLayer.get().subjects.find(s => s.id === sid)?.chapters?.find(c => c.id === cid);
         if(chap && chap.topics && chap.topics.length) { chap.topics.forEach(t => { const o = document.createElement('option'); o.value = t.id; o.textContent = t.name; sel.appendChild(o); }); } else sel.innerHTML = '<option value="">No chapters</option>';
     },
+    
     start: function() {
         const sid = document.getElementById('timer-subject-select').value, cid = document.getElementById('timer-chapter-select').value, tid = document.getElementById('timer-topic-select').value, mins = parseInt(document.getElementById('timer-duration-slider').value);
         if ((this.mode === 'focus' || this.mode === 'revision') && (!sid || !cid || !tid)) return modal.show({title: "Wait", desc: "Select subject, branch, and chapter.", type: "alert"});
         this.currentSession = { subjectId: sid, chapterId: cid, topicId: tid, durationMins: mins };
         this.plannedDurationMs = this.timerType === 'countdown' ? (mins * 60000) : 0; this.startTimestamp = Date.now(); this.accumulatedPauseMs = 0; this.pausedAt = null; this.durationSeconds = this.timerType === 'countdown' ? (mins * 60) : 0; this.remainingSeconds = this.durationSeconds; this.elapsedSeconds = 0; this.isRunning = true; this.isPaused = false;
+        
         const subjObj = dataLayer.get().subjects.find(s=>s.id===sid), chapObj = subjObj?.chapters?.find(c=>c.id===cid), topObj = chapObj?.topics?.find(t=>t.id===tid), isSt = (this.mode === 'focus' || this.mode === 'revision');
         document.getElementById('active-subject-text').textContent = isSt ? subjObj?.name : "Break Time"; document.getElementById('active-chapter-text').textContent = isSt ? chapObj?.name : ""; document.getElementById('active-chapter-text').style.display = isSt ? 'block' : 'none'; document.getElementById('active-topic-text').textContent = isSt ? topObj?.name : "Relax and recharge";
+        
         const bdg = document.getElementById('active-mode-badge');
         if (this.mode === 'focus') { bdg.textContent = 'Focus Mode'; bdg.className = 'mt-3 inline-block px-3 py-1 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-bold rounded-full uppercase tracking-wider'; this.elProgress.style.stroke = '#2563eb'; }
         else if (this.mode === 'revision') { bdg.textContent = 'Revision Mode'; bdg.className = 'mt-3 inline-block px-3 py-1 bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-xs font-bold rounded-full uppercase tracking-wider'; this.elProgress.style.stroke = '#a855f7'; }
         else { bdg.textContent = 'Break Mode'; bdg.className = 'mt-3 inline-block px-3 py-1 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-xs font-bold rounded-full uppercase tracking-wider'; this.elProgress.style.stroke = '#10b981'; }
+        
         this.elSetup.classList.add('hidden'); this.elActive.classList.remove('hidden'); this.elActive.classList.add('flex'); this.elBtnPause.innerHTML = '<i class="ph-fill ph-pause text-xl"></i> Pause';
-        this.updateDisplay(); this.timerInterval = setInterval(() => this.tick(), 1000);
+        
+        this.updateDisplay(); 
+        this.timerInterval = setInterval(() => this.tick(), 1000);
+        
+        if ('wakeLock' in navigator) {
+            navigator.wakeLock.request('screen').then(wl => this.wakeLock = wl).catch(e => console.log('Wake Lock error:', e));
+        }
+        
+        this.saveActiveState();
     },
     tick: function() {
         if (this.isPaused) return;
@@ -706,8 +820,19 @@ const TimerModule = {
     },
     togglePause: function() {
         this.isPaused = !this.isPaused;
-        if (this.isPaused) { this.pausedAt = Date.now(); this.elBtnPause.innerHTML = '<i class="ph-fill ph-play text-xl"></i> Resume'; this.elProgress.style.transition = 'none'; }
-        else { this.accumulatedPauseMs += (Date.now() - this.pausedAt); this.pausedAt = null; this.elBtnPause.innerHTML = '<i class="ph-fill ph-pause text-xl"></i> Pause'; setTimeout(() => this.elProgress.style.transition = 'stroke-dashoffset 1s linear', 50); }
+        if (this.isPaused) { 
+            this.pausedAt = Date.now(); 
+            this.elBtnPause.innerHTML = '<i class="ph-fill ph-play text-xl"></i> Resume'; 
+            this.elProgress.style.transition = 'none'; 
+            if (this.wakeLock) { this.wakeLock.release().then(() => this.wakeLock = null); }
+        } else { 
+            this.accumulatedPauseMs += (Date.now() - this.pausedAt); 
+            this.pausedAt = null; 
+            this.elBtnPause.innerHTML = '<i class="ph-fill ph-pause text-xl"></i> Pause'; 
+            setTimeout(() => this.elProgress.style.transition = 'stroke-dashoffset 1s linear', 50); 
+            if ('wakeLock' in navigator) { navigator.wakeLock.request('screen').then(wl => this.wakeLock = wl).catch(e => console.log('Wake Lock error:', e)); }
+        }
+        this.saveActiveState();
     },
     stop: async function() {
         if (await modal.show({title: "End Session early?", desc: "Session will be saved with elapsed time.", type: "confirm"})) {
@@ -739,7 +864,17 @@ const TimerModule = {
         await modal.show({title: "Session Saved!", desc: `Logged ${mins} minutes for ${dateStr}.`, type: "alert"});
         document.getElementById('manual-duration').value = 60; document.getElementById('manual-date').value = calUtils.toYYYYMMDD(new Date());
     },
-    reset: function() { clearInterval(this.timerInterval); this.isRunning = false; this.isPaused = false; this.elActive.classList.add('hidden'); this.elActive.classList.remove('flex'); this.elSetup.classList.remove('hidden'); this.elProgress.style.strokeDashoffset = 0; }
+    reset: function() { 
+        clearInterval(this.timerInterval); 
+        this.isRunning = false; 
+        this.isPaused = false; 
+        this.elActive.classList.add('hidden'); 
+        this.elActive.classList.remove('flex'); 
+        this.elSetup.classList.remove('hidden'); 
+        this.elProgress.style.strokeDashoffset = 0; 
+        this.clearActiveState();
+        if (this.wakeLock) { this.wakeLock.release().then(() => this.wakeLock = null); }
+    }
 };
 
 const SubjectsModule = {
@@ -979,6 +1114,19 @@ const SettingsModule = {
         const fInp = document.getElementById('file-import-input'); document.getElementById('btn-import-backup').onclick = () => fInp.click(); fInp.addEventListener('change', (e) => this.handleImport(e));
         document.getElementById('btn-edit-goal').onclick = () => this.editGoal();
         
+        const webhookInp = document.getElementById('discord-webhook-url');
+        webhookInp.value = localStorage.getItem('studyos_discord_webhook') || '';
+        document.getElementById('btn-save-discord').onclick = () => {
+            const val = webhookInp.value.trim();
+            if (val) {
+                localStorage.setItem('studyos_discord_webhook', val);
+                modal.show({title: "Webhook Saved", desc: "Discord daily summaries enabled.", type: "alert"});
+            } else {
+                localStorage.removeItem('studyos_discord_webhook');
+                modal.show({title: "Webhook Cleared", desc: "Discord daily summaries disabled.", type: "alert"});
+            }
+        };
+
         const btnTheme = document.getElementById('btn-toggle-theme');
         btnTheme.onclick = () => {
             document.documentElement.classList.toggle('dark');
@@ -1069,8 +1217,180 @@ const MocksModule = {
     }
 };
 
+const DiscordModule = {
+    sendDailySummary: async function() {
+        const webhookUrl = localStorage.getItem('studyos_discord_webhook');
+        if (!webhookUrl) return;
+
+        const todayStr = calUtils.toYYYYMMDD(new Date());
+        const lastSummaryDate = localStorage.getItem('studyos_last_discord_summary');
+        
+        if (lastSummaryDate === todayStr) return; // Already sent today
+        
+        const data = dataLayer.get();
+        if (data.sessions.length === 0) return; // Completely new app, no history
+
+        const yesterdayDate = new Date();
+        yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+        const yesterdayStr = calUtils.toYYYYMMDD(yesterdayDate);
+
+        // Gather yesterday's data
+        let totalMins = 0;
+        let sessionCount = 0;
+        const subjectMins = {};
+        
+        data.sessions.forEach(s => {
+            if (s.date === yesterdayStr && (s.mode === 'focus' || s.mode === 'revision')) {
+                const mins = s.startTime && s.endTime ? Math.round((s.endTime - s.startTime) / 60000) : (s.duration || 0);
+                totalMins += mins;
+                sessionCount++;
+                subjectMins[s.subjectId] = (subjectMins[s.subjectId] || 0) + mins;
+            }
+        });
+
+        if (sessionCount === 0) {
+            // If zero sessions yesterday, just mark it sent so we don't keep trying today, but don't post empty summary
+            localStorage.setItem('studyos_last_discord_summary', todayStr);
+            return; 
+        }
+
+        const goalMins = data.settings.dailyGoalMinutes || 240;
+        const pctMet = Math.min(100, Math.round((totalMins / goalMins) * 100));
+        
+        let subText = '';
+        Object.keys(subjectMins).forEach(sid => {
+            const sub = data.subjects.find(x => x.id === sid);
+            if (sub) {
+                subText += `**${sub.name}:** ${utils.formatTime(subjectMins[sid])}\n`;
+            }
+        });
+        if (!subText) subText = "No focus data.";
+
+        let topicUpdates = 0;
+        data.subjects.forEach(s => {
+            s.chapters?.forEach(c => {
+                c.topics?.forEach(t => {
+                    // Check if topic was revised or completed yesterday (we rely on lastRevisedDate for simplicity or just general stats)
+                    if (t.lastRevisedDate === yesterdayStr) topicUpdates++;
+                    // Note: We don't have a strict 'date completed' for topics in the model, so we count revisions for the dynamic stat.
+                });
+            });
+        });
+
+        const embed = {
+            title: `📊 Study Summary — ${yesterdayDate.toLocaleDateString(undefined, {weekday: 'long', month: 'short', day: 'numeric'})}`,
+            color: 2450411, // #2563eb in decimal
+            fields: [
+                {
+                    name: "⏱️ Total Time",
+                    value: utils.formatTime(totalMins),
+                    inline: true
+                },
+                {
+                    name: "🎯 Goal Progress",
+                    value: `${pctMet}% of ${utils.formatTime(goalMins)}`,
+                    inline: true
+                },
+                {
+                    name: "🔥 Current Streak",
+                    value: `${data.streak.count} days`,
+                    inline: true
+                },
+                {
+                    name: "📚 Subject Breakdown",
+                    value: subText,
+                    inline: false
+                },
+                {
+                    name: "✅ Sessions Completed",
+                    value: `${sessionCount} sessions`,
+                    inline: true
+                },
+                {
+                    name: "🔄 Topics Revised",
+                    value: `${topicUpdates} topics`,
+                    inline: true
+                }
+            ],
+            footer: {
+                text: "StudyOS Daily Report"
+            },
+            timestamp: new Date().toISOString()
+        };
+
+        try {
+            await fetch(webhookUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ embeds: [embed] })
+            });
+            // Mark as sent for today
+            localStorage.setItem('studyos_last_discord_summary', todayStr);
+        } catch (e) {
+            // Fail silently
+            console.log("Discord webhook failed", e);
+        }
+    }
+};
+
 const app = {
-    timer: TimerModule, subjects: SubjectsModule, history: HistoryModule, calendar: CalendarModule, settings: SettingsModule, ui: UIModule, drive: DriveModule, mocks: MocksModule,
+    timer: TimerModule, subjects: SubjectsModule, history: HistoryModule, calendar: CalendarModule, settings: SettingsModule, ui: UIModule, drive: DriveModule, mocks: MocksModule, discord: DiscordModule,
+    cleanupPhysicsBranches: function() {
+        const data = dataLayer.get();
+        if (!data || !data.subjects) return;
+
+        const physics = data.subjects.find(s => s.name === 'Physics');
+        if (!physics || !physics.chapters) return;
+
+        let mechanics = physics.chapters.find(c => c.name === 'Mechanics');
+        if (!mechanics) {
+            mechanics = { id: 'c_' + utils.generateId(), name: 'Mechanics', topics: [] };
+            physics.chapters.unshift(mechanics);
+        }
+        if (!mechanics.topics) mechanics.topics = [];
+
+        const strayNames = ['Units & Dimensions', 'Vectors', 'Kinematics 1-D', 'Kinematics 2-D', 'NLM & Friction', 'Circular Motion', 'Work Power & Energy', 'Rotation', 'Center of Mass', 'Gravitation', 'Elasticity & Thermal', 'Fluid Mechanics', 'SHM', 'Error Analysis'];
+        let changed = false;
+
+        for (let i = physics.chapters.length - 1; i >= 0; i--) {
+            const chap = physics.chapters[i];
+            if (chap.name !== 'Mechanics' && strayNames.includes(chap.name)) {
+                changed = true;
+                const oldId = chap.id;
+                const newId = mechanics.id;
+
+                if (chap.topics && chap.topics.length > 0) {
+                    mechanics.topics.push(...chap.topics);
+                } else {
+                    mechanics.topics.unshift({ id: oldId, name: chap.name, needsRevision: false, lastRevisedDate: null, status: 'not_started' });
+                }
+
+                if (data.sessions) {
+                    data.sessions.forEach(session => {
+                        if (session.chapterId === oldId) {
+                            session.chapterId = newId;
+                            if (!chap.topics || chap.topics.length === 0) session.topicId = oldId;
+                        }
+                    });
+                }
+
+                if (data.plannedSessions) {
+                    data.plannedSessions.forEach(session => {
+                        if (session.chapterId === oldId) {
+                            session.chapterId = newId;
+                            if (!chap.topics || chap.topics.length === 0) session.topicId = oldId;
+                        }
+                    });
+                }
+                physics.chapters.splice(i, 1);
+            }
+        }
+
+        if (changed) {
+            console.log('🧹 StudyOS Cleanup: Successfully migrated stray Physics branches into Mechanics.');
+            dataLayer.save(data);
+        }
+    },
     seedJEESyllabus: function() {
         const data = dataLayer.get(); let updated = false;
         const newSyllabus = {
@@ -1097,7 +1417,12 @@ const app = {
     },
     init: function() { 
         this.seedJEESyllabus();
+        this.cleanupPhysicsBranches();
         this.timer.init(); this.calendar.init(); this.settings.init(); this.mocks.init(); this.ui.renderHome(); 
+        
+        // Check for Discord summary
+        this.discord.sendDailySummary();
+
         const checkGSI = setInterval(() => { if (typeof google !== 'undefined' && google.accounts) { clearInterval(checkGSI); this.drive.init(); } }, 100);
         setTimeout(() => clearInterval(checkGSI), 10000); 
     }
